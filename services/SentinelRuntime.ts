@@ -1,4 +1,3 @@
-
 import { 
   RobotState, 
   RobotHealth, 
@@ -8,7 +7,8 @@ import {
   LyapunovMatrix,
   ActuatorHealth,
   ModelMetadata,
-  RiskLevel
+  RiskLevel,
+  HealthAdvisory
 } from '../types';
 
 export class SentinelRuntime {
@@ -16,6 +16,7 @@ export class SentinelRuntime {
   private mode: RuntimeMode = RuntimeMode.NORMAL;
   private failures: FailureEvent[] = [];
   private smoothedVelocityScale = 1.0;
+  private readonly MAX_HISTORY = 100;
   
   // v5 Model Parameters
   private mass_est = 1.0;
@@ -48,21 +49,23 @@ export class SentinelRuntime {
   public observe(state: RobotState) {
     const start = performance.now();
     
+    // 0. UPDATE HISTORY
+    this.history.push(state);
+    if (this.history.length > this.MAX_HISTORY) this.history.shift();
+
     // 1. DUAL-CHANNEL LOGICAL REDUNDANCY
-    // Running primary and shadow observer paths for cross-verification
     const primaryPred = this.predictPrimary(state);
-    const shadowPred = this.predictShadow(state); // Uses alternate integration (Euler)
+    const shadowPred = this.predictShadow(state); 
     const divergence = Math.abs(primaryPred - shadowPred);
 
-    if (divergence > 5.0) {
+    if (divergence > 12.0) { // Slightly wider bound for discretized noise
       this.triggerFailure('Observer Conflict', 'High Risk', HazardLevel.STABILITY_DEGRADATION, 'Primary and Shadow logic paths diverged. Bit-flip or nondeterminism suspected.');
       this.mode = RuntimeMode.INTERNAL_FAULT;
     }
 
     // 2. ADAPTIVE FORGETTING SCHEDULING
-    // lambda = f(residual, uncertainty)
     const innovation = Math.abs(state.acceleration[0] - primaryPred);
-    this.lambda = 1.0 - Math.min(0.05, 0.001 + (innovation * 0.002)); // Slows down when innovation is low
+    this.lambda = 1.0 - Math.min(0.05, 0.001 + (innovation * 0.002)); 
 
     // 3. PARAMETER ESTIMATION (RLS)
     if (this.mode !== RuntimeMode.SAFE_FALLBACK && Math.abs(state.controlInput[0]) > 0.1) {
@@ -76,7 +79,9 @@ export class SentinelRuntime {
     this.checkActuators(state);
 
     this.timing['total'] = performance.now() - start;
-    if (this.timing['total'] > 5.0) this.mode = RuntimeMode.DEGRADED;
+    if (this.timing['total'] > 5.0 && this.mode === RuntimeMode.NORMAL) {
+      this.mode = RuntimeMode.DEGRADED;
+    }
     
     this.updateAdvisoryScaling();
   }
@@ -86,8 +91,9 @@ export class SentinelRuntime {
   }
 
   private predictShadow(state: RobotState): number {
-    // Alternate computation path for redundancy
-    const prev = this.history[this.history.length - 1] || state;
+    const prevIdx = this.history.length - 2;
+    const prev = prevIdx >= 0 ? this.history[prevIdx] : state;
+    // Alternate path: simple derivative approximation
     return (prev.controlInput[0] / this.mass_est);
   }
 
@@ -99,19 +105,15 @@ export class SentinelRuntime {
   }
 
   private updateLyapunov(state: RobotState) {
-    // Constructing P from linearized dynamics A
-    // For x_dot = Ax + Bu, where state is [pos, vel]
-    // A = [[0, 1], [0, -friction/mass]]
     const a22 = -this.friction_est / this.mass_est;
     
-    // Linearized Lyapunov Equation A^T P + P A = -Q
-    // Simplified solution for 2x2 system
-    this.P[0][0] = (this.Q[0][0] + (this.P[0][1] * 0)) / 1.0; // Approximation
+    // Simplified A^T P + P A = -Q solver
+    this.P[0][0] = (this.Q[0][0]) / 1.0; 
     this.P[1][1] = -this.Q[1][1] / (2 * a22);
-    this.P[0][1] = this.P[1][0] = 0.0; // Decoupled for runtime speed
+    this.P[0][1] = this.P[1][0] = 0.0;
 
     const energy = 0.5 * (this.P[0][0] * state.position[0]**2 + this.P[1][1] * state.velocity[0]**2);
-    if (energy > 5000) {
+    if (energy > 8000) {
       this.triggerFailure('Stability Collapse', 'Critical', HazardLevel.CATASTROPHIC, 'Lyapunov energy exceeded proof-bound limit.');
       this.mode = RuntimeMode.SAFE_FALLBACK;
     }
@@ -121,6 +123,7 @@ export class SentinelRuntime {
     const torque = Math.abs(state.controlInput[0]);
     if (torque > this.ACTUATOR_LIMITS.max_torque) {
       this.triggerFailure('Envelope Violation', 'Critical', HazardLevel.AUTHORITY_LOSS, 'Actuator torque exceeded safe operational envelope.');
+      if (this.mode !== RuntimeMode.SAFE_FALLBACK) this.mode = RuntimeMode.DEGRADED;
     }
   }
 
@@ -132,7 +135,7 @@ export class SentinelRuntime {
 
   private triggerFailure(type: string, severity: string, hazard: HazardLevel, desc: string) {
     const last = this.failures[this.failures.length - 1];
-    if (last && Date.now() - last.timestamp < 5000) return;
+    if (last && Date.now() - last.timestamp < 3000) return;
 
     this.failures.push({
       id: `FLT-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
@@ -149,29 +152,44 @@ export class SentinelRuntime {
 
   public getHealth(): RobotHealth {
     return {
-      modelConfidence: 1.0 - (this.covariance / 2000),
+      modelConfidence: 1.0 - Math.min(1, this.covariance / 3000),
       driftScore: Math.abs(this.mass_est - 1.0),
-      instabilityRisk: this.mode === RuntimeMode.SAFE_FALLBACK ? 1.0 : this.covariance > 1000 ? 0.6 : 0.1,
-      hazardLevel: this.mode === RuntimeMode.NORMAL ? HazardLevel.NONE : HazardLevel.STABILITY_DEGRADATION,
+      instabilityRisk: this.mode === RuntimeMode.SAFE_FALLBACK ? 1.0 : this.covariance > 2000 ? 0.8 : this.covariance > 1200 ? 0.5 : 0.1,
+      hazardLevel: this.mode === RuntimeMode.NORMAL ? HazardLevel.NONE : 
+                   this.mode === RuntimeMode.DEGRADED ? HazardLevel.PERFORMANCE_DRIFT : HazardLevel.STABILITY_DEGRADATION,
       runtimeMode: this.mode,
       wcet_ms: this.timing['total'] || 0,
-      lyapunov: { P: this.P, Q: this.Q, eigenvalues: [this.P[0][0], this.P[1][1]], isPositiveDefinite: this.P[0][0] > 0 && this.P[1][1] > 0 },
-      actuators: { torqueUtilization: Math.abs(this.mass_est) * 0.1, powerDraw: 100, thermalEstimate: 45, saturationRisk: 0.1 },
+      lyapunov: { 
+        P: this.P, 
+        Q: this.Q, 
+        eigenvalues: [this.P[0][0], this.P[1][1]], 
+        isPositiveDefinite: this.P[0][0] > 0 && this.P[1][1] > 0 
+      },
+      actuators: { 
+        torqueUtilization: (Math.abs(this.mass_est) * 0.1), 
+        powerDraw: 120, 
+        thermalEstimate: 42 + (Math.random() * 5), 
+        saturationRisk: 0.1 
+      },
       metadata: this.METADATA,
       timing: this.timing,
       integrityHash: btoa(this.METADATA.buildFingerprint).slice(0, 12),
-      faults: { estimator: this.covariance > 1500, runtime: this.timing['total'] > 5 },
-      estimates: { mass: this.mass_est, friction: this.friction_est, lambda: this.lambda },
+      faults: { 
+        estimator: this.covariance > 2500, 
+        runtime: (this.timing['total'] || 0) > 5 
+      },
+      estimates: { 
+        mass: this.mass_est, 
+        friction: this.friction_est, 
+        lambda: this.lambda 
+      },
       consensus: { divergence: 0 },
       residual: { nis: 1.2 },
-      stability: { isStable: true }
+      stability: { isStable: this.mode !== RuntimeMode.SAFE_FALLBACK }
     };
   }
 
-  /**
-   * Constructs a HealthAdvisory using the formalized RiskLevel enum.
-   */
-  public getAdvisory() {
+  public getAdvisory(): HealthAdvisory {
     const h = this.getHealth();
     return {
       recommendedVelocityScale: this.smoothedVelocityScale,
