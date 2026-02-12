@@ -1,0 +1,5 @@
+{
+  "name": "Sentinel - Physical Autonomy Reliability Layer",
+  "description": "A high-fidelity real-time observability runtime for robotics that detects physical parameter drift, estimates model uncertainty, and predicts instability through deterministic physics observers and residual learning engines.",
+  "requestFramePermissions": []
+}
