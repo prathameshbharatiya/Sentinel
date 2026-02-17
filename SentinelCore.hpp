@@ -20,6 +20,7 @@ struct RobotHealth {
     double confidence;
     double drift_score;
     double risk_score;
+    double redundancy_error;
     HazardLevel hazard;
     RuntimeMode mode;
     double last_wcet_ms;
@@ -51,6 +52,7 @@ private:
     RuntimeMode mode_;
     double lambda_forget_;
     double last_wcet_ms_;
+    double redundancy_error_sum_;
 
     // Recursive Least Squares (RLS) Parameter ID
     Eigen::VectorXd theta_est_;
@@ -62,6 +64,7 @@ private:
 
     void runRLS(const Eigen::VectorXd& vel, const Eigen::VectorXd& cmd);
     void updateLyapunov(const Eigen::VectorXd& pos, const Eigen::VectorXd& vel);
+    void checkRedundancy(const Eigen::VectorXd& vel, const Eigen::VectorXd& cmd);
     void evaluateSafety();
 };
 

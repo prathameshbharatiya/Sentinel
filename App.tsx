@@ -66,7 +66,7 @@ const LandingPage: React.FC<{ onEnter: () => void, onDownloadSDK: (type: 'hpp' |
                  {[
                    "Deterministic Worst-Case Execution Time (WCET) < 1.0ms",
                    "Mathematical Proof of Stability via Lyapunov Functions",
-                   "Real-time Identification of Payload/Mass Changes",
+                   "Dual-Path Shadow Redundancy (Divergence Check)",
                    "No Dynamic Memory Allocation (Heap-Free Runtime)"
                  ].map((item, i) => (
                    <div key={i} className="flex gap-3 items-start border-l border-zinc-800 pl-4 py-1">
@@ -157,7 +157,7 @@ void loop() {
                 <ul className="text-[10px] text-zinc-500 space-y-1">
                    <li>• C++17 Standard or higher</li>
                    <li>• Eigen 3.3.7+ (Matrix Mathematics)</li>
-                   <li>• No standard library dependencies (optional for some logs)</li>
+                   <li>• No standard library dependencies</li>
                 </ul>
               </div>
             </div>
@@ -174,7 +174,7 @@ void loop() {
             onClick={onEnter}
             className="w-full md:w-auto px-12 py-4 bg-white text-black font-black uppercase tracking-widest hover:bg-[#00ff41] transition-all transform hover:-translate-y-1"
           >
-            Enter Dashboard Simulator
+            Launch Observation Deck
           </button>
         </div>
       </div>
@@ -257,21 +257,25 @@ const App: React.FC = () => {
 
   const handleDownloadSDK = async (type: 'hpp' | 'cpp') => {
     let content = "";
-    if (type === 'hpp') {
-      const resp = await fetch('SentinelCore.hpp');
-      content = await resp.text();
-    } else {
-      const resp = await fetch('SentinelCore.cpp');
-      content = await resp.text();
+    try {
+      if (type === 'hpp') {
+        const resp = await fetch('SentinelCore.hpp');
+        content = await resp.text();
+      } else {
+        const resp = await fetch('SentinelCore.cpp');
+        content = await resp.text();
+      }
+      
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = type === 'hpp' ? "SentinelCore.hpp" : "SentinelCore.cpp";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("ERROR: SDK source files not found in root. Ensure SentinelCore.hpp/cpp are present.");
     }
-    
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = type === 'hpp' ? "SentinelCore.hpp" : "SentinelCore.cpp";
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   const runGeminiForensics = async (failure: any) => {
@@ -373,6 +377,12 @@ const App: React.FC = () => {
               {health && (
                 <div className="space-y-3">
                   <HealthMetric label="Torque_Utilization" value={health.actuators.torqueUtilization / 10} />
+                  <div className="flex justify-between text-[10px] mb-4">
+                    <span className="opacity-40 uppercase">Dual-Path Consensus</span>
+                    <span className={health.consensus.divergence > 10 ? 'text-rose-500 font-bold' : 'text-emerald-500 font-bold'}>
+                      {health.consensus.divergence > 10 ? 'DIVERGED' : 'CONSENSUS'}
+                    </span>
+                  </div>
                   <div className="flex justify-between text-[9px]">
                     <span className="opacity-40 uppercase">Thermal_Est</span>
                     <span className={health.actuators.thermalEstimate > 60 ? 'text-rose-500 font-bold' : 'text-white'}>
