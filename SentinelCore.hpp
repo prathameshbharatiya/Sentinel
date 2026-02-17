@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <Eigen/Dense>
@@ -8,51 +7,62 @@
 namespace sentinel {
 
 enum class RuntimeMode { NORMAL, DEGRADED, SAFE_FALLBACK, INTERNAL_FAULT };
+enum class RiskLevel { NOMINAL, HIGH_RISK, CRITICAL };
 enum class HazardLevel { NONE, H1_DRIFT, H2_STABILITY, H3_AUTHORITY, H4_CATASTROPHIC };
 
-typedef Eigen::Matrix<double, 2, 2> Matrix2d;
-typedef Eigen::Vector2d Vector2d;
-
 struct LyapunovMatrix {
-    Matrix2d P;
-    Matrix2d Q;
+    Eigen::Matrix2d P;
+    Eigen::Matrix2d Q;
     bool is_positive_definite;
-};
-
-struct ActuatorHealth {
-    double torque_utilization;
-    double power_draw;
-    double thermal_est;
 };
 
 struct RobotHealth {
     double confidence;
+    double drift_score;
+    double risk_score;
     HazardLevel hazard;
     RuntimeMode mode;
-    double wcet_ms;
+    double last_wcet_ms;
     LyapunovMatrix lyapunov;
-    ActuatorHealth actuators;
     std::string integrity_hash;
+};
+
+struct HealthAdvisory {
+    double velocity_scale;
+    RiskLevel risk;
+    RuntimeMode mode;
+    bool anomaly_detected;
 };
 
 class SentinelCore {
 public:
-    SentinelCore();
-    void step(const Eigen::Vector3d& pos, const Eigen::Vector3d& vel, const Eigen::Vector3d& cmd);
+    explicit SentinelCore(int dof = 1);
+    
+    // Core Execution Step (1kHz target)
+    void step(const Eigen::VectorXd& pos, 
+              const Eigen::VectorXd& vel, 
+              const Eigen::VectorXd& control_input);
+
     RobotHealth getHealth() const;
+    HealthAdvisory getAdvisory() const;
 
 private:
+    int dof_;
     RuntimeMode mode_;
-    double mass_est_;
-    double covariance_;
-    double lambda_;
-    
-    Matrix2d P_;
-    Matrix2d Q_;
+    double lambda_forget_;
+    double last_wcet_ms_;
 
-    void solveLyapunov();
-    void runAdaptiveRLS(double innovation, double control);
-    void enforceActuatorEnvelopes(double torque);
+    // Recursive Least Squares (RLS) Parameter ID
+    Eigen::VectorXd theta_est_;
+    Eigen::MatrixXd P_cov_;
+
+    // Lyapunov Stability Monitoring
+    Eigen::Matrix2d P_lyap_;
+    Eigen::Matrix2d Q_lyap_;
+
+    void runRLS(const Eigen::VectorXd& vel, const Eigen::VectorXd& cmd);
+    void updateLyapunov(const Eigen::VectorXd& pos, const Eigen::VectorXd& vel);
+    void evaluateSafety();
 };
 
 } // namespace sentinel
