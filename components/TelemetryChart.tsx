@@ -9,8 +9,8 @@ interface TelemetryChartProps {
 
 const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, title }) => {
   return (
-    <div className="bg-zinc-900/50 border border-[#00ff41]/10 p-4 rounded-lg h-64 shadow-inner">
-      <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#00ff41]/50 mb-4">{title}</h3>
+    <div className="bg-zinc-900/50 border border-[#00ff41]/10 p-2 rounded-lg h-full shadow-inner">
+      <h3 className="text-[9px] font-bold uppercase tracking-widest text-[#00ff41]/50 mb-2">{title}</h3>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" vertical={false} />

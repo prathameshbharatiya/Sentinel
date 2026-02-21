@@ -1,4 +1,11 @@
 
+export enum RobotTopology {
+  LINEAR_ACTUATOR = 'Linear Actuator (1-DOF)',
+  QUADCOPTER = 'Quadcopter (3D-Flight)',
+  ROVER = 'Mobile Rover (2D-Traction)',
+  INDUSTRIAL_ARM = 'Robotic Arm (2-DOF)'
+}
+
 export enum RuntimeMode {
   NORMAL = 'Normal',
   DEGRADED = 'Degraded',
@@ -24,12 +31,27 @@ export enum RiskLevel {
   CRITICAL = 'Critical'
 }
 
+export enum IntentType {
+  MOVE_TO = 'MOVE_TO',
+  STABILIZE = 'STABILIZE',
+  ESTOP = 'ESTOP',
+  OSCILLATE = 'OSCILLATE'
+}
+
+export interface RobotIntent {
+  type: IntentType;
+  target?: number;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH';
+  timestamp: number;
+}
+
 export interface RobotState {
   position: number[];
   velocity: number[];
   acceleration: number[];
   controlInput: number[];
   timestamp: number;
+  topology?: RobotTopology;
 }
 
 export interface LyapunovMatrix {
@@ -51,6 +73,63 @@ export interface ModelMetadata {
   buildFingerprint: string;
   parameterLockStatus: boolean;
   compilationTimestamp: number;
+  topologyDelta: number; // L0 Topology-Aware Reconciliation Delta
+}
+
+export interface DigitalTwinState {
+  estimatedMass: number;
+  estimatedFriction: number;
+  estimatedDrag: number;
+  modelResidual: number;
+  stabilityMargin: number;
+  adaptationRate: number;
+  uncertaintyTube: {
+    vMin: number;
+    vMax: number;
+  };
+}
+
+export interface IntentCoherence {
+  isCoherent: boolean;
+  commandFrequencyHz: number;
+  contradictionScore: number;
+  lastIntentType: IntentType | null;
+}
+
+export interface FaultDiagnosis {
+  classifiedFault: string | null;
+  confidence: number;
+  isPredictive: boolean;
+  isOOD: boolean; // Out-of-Distribution Anomaly Flag
+  signatureMatch: string | null;
+}
+
+export interface ConsensusState {
+  peerCount: number;
+  conflictDetected: boolean;
+  byzantineStatus: 'TRUSTED' | 'SUSPICIOUS' | 'COMPROMISED';
+  resolvedIntent: RobotIntent | null;
+}
+
+export interface AuditEntry {
+  id: string;
+  timestamp: number;
+  precisionTimestamp: string; // PTP-Synchronized High-Precision Timestamp
+  ptpSyncOffset: number; // Clock offset from fleet master (nanoseconds)
+  intent: RobotIntent | null;
+  governance: {
+    rawControl: number[];
+    safeControl: number[];
+    clamped: boolean;
+    safetyFactor: number;
+  };
+  topology: RobotTopology;
+  forensics: {
+    coherence: number;
+    faultDiagnosis: string | null;
+    consensusConflict: boolean;
+  };
+  hash: string;
 }
 
 export interface RobotHealth {
@@ -67,6 +146,10 @@ export interface RobotHealth {
   integrityHash: string;
   faults: { [key: string]: boolean };
   estimates: { [key: string]: number };
+  digitalTwin: DigitalTwinState;
+  intentCoherence: IntentCoherence;
+  faultDiagnosis: FaultDiagnosis;
+  consensusState: ConsensusState;
   consensus: { [key: string]: number };
   residual: { [key: string]: any };
   stability: { [key: string]: any };
