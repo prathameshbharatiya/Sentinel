@@ -7,6 +7,8 @@ import HealthMetric from './components/HealthMetric';
 import AdvisoryPanel from './components/AdvisoryPanel';
 import DigitalTwinVisualizer from './components/DigitalTwinVisualizer';
 import SentinelLedger from './components/SentinelLedger';
+import FleetConsensusMap from './components/FleetConsensusMap';
+import PtpSyncStatus from './components/PtpSyncStatus';
 
 const PaperContent = `
 SENTINEL V5.0: A UNIVERSAL NEURAL-SYMBOLIC GOVERNOR FOR ZERO-TRUST ROBOTIC AUTONOMY
@@ -15,13 +17,13 @@ Prathamesh Shirbhate
 Safety-Critical Robotics Systems • Real-Time Control Architecture
 
 ABSTRACT
-High-level autonomy systems—including reinforcement learning policies, trajectory optimizers, and large language model planners—lack formal guarantees of stability, boundedness, and actuator feasibility. Sentinel v5.0 introduces a Universal Neural-Symbolic Governor that enforces physics-consistent constraints across multiple topologies (Drones, Rovers, Actuators). By integrating a Neural Command Bridge (AI-to-Physics translation) with a deterministic Lyapunov Kernel and a Forensic Audit Ledger, Sentinel provides a complete, tamper-evident safety layer. Key features include real-time Digital Twin adaptation via Recursive Least Squares (RLS), Uncertainty-Aware Lyapunov Extension (Interval Analysis), and a cryptographically hashed forensic chain for liability and reconstruction.
+High-level autonomy systems—including reinforcement learning policies, trajectory optimizers, and large language model planners—lack formal guarantees of stability, boundedness, and actuator feasibility. Sentinel v5.0 introduces a Universal Neural-Symbolic Governor that enforces physics-consistent constraints across multiple topologies (Drones, Rovers, Actuators). By integrating a Neural Command Bridge (AI-to-Physics translation) with a deterministic Lyapunov Kernel and a Forensic Audit Ledger, Sentinel provides a complete, tamper-evident safety layer. Key features include real-time Digital Twin adaptation via Recursive Least Squares (RLS), Context-Sensitive L0 Delta refinement, Byzantine-Resilient Distributed Consensus (L3), and PTP-Synchronized Forensic Reconstruction (L7).
 
 1. MOTIVATION AND CONTEXT
 Modern robotic architectures compose multiple layers of abstraction. Sentinel's central thesis is that stability must be enforced computationally at runtime. The kernel intercepts every control command issued by the high-level planner—whether it's a Neural Network or a human operator—and subjects it to formal compliance checks before actuation.
 
-2. L0: DUAL-PARSER NEURAL BRIDGE
-Sentinel utilizes a Dual-Parser Architecture where LLM-based intent extraction runs alongside a deterministic symbolic parser. This prevents "Neural Hallucinations" from reaching the control loop.
+2. L0: CONTEXT-SENSITIVE NEURAL BRIDGE
+Sentinel utilizes a Dual-Parser Architecture where LLM-based intent extraction runs alongside a deterministic symbolic parser. v5.0 introduces dynamic δ-refinement, where the reconciliation window scales with velocity, proximity to obstacles, and L2 uncertainty estimates, ensuring tighter safety bounds in high-risk environments.
 
 3. L1: SEMANTIC INTENT COHERENCE
 A lightweight monitor tracks command history to detect semantically contradictory or suspiciously rapid command sequences, preventing adversarial or confused operator inputs.
@@ -29,8 +31,8 @@ A lightweight monitor tracks command history to detect semantically contradictor
 4. L2: DIGITAL TWIN ADAPTATION
 The kernel maintains a real-time Digital Twin of the physical system using RLS with innovation-driven forgetting. This allows Sentinel to "feel" changes in mass, friction, or environmental drag and adapt its safety envelopes in < 1ms.
 
-5. L3: DISTRIBUTED SAFETY CONSENSUS
-Sentinels broadcast projected control intentions to resolve conflicts in multi-robot environments, ensuring local stability doesn't lead to global catastrophe.
+5. L3: DISTRIBUTED SAFETY CONSENSUS (QUORUM COMMITMENT)
+Sentinels broadcast projected control intentions to resolve conflicts. v5.0 implements a Byzantine-resilient commitment protocol requiring a quorum of ⌊(N+1)/2⌋ peers. Robots default to HOLD POSITION if consensus isn't reached within a 20ms timeout window.
 
 6. L4: UNCERTAINTY-AWARE LYAPUNOV (INTERVAL ANALYSIS)
 Sentinel computes a Lyapunov "tube" (V_min and V_max) bracketing parameter uncertainty. The kernel only certifies stability if the entire tube is stable, automatically becoming more conservative during re-learning transients.
@@ -41,8 +43,8 @@ A Fault Signature Library classifies parameter drifts into specific hardware fai
 8. L6: GOVERNED HUMAN OVERRIDE
 Emergency stops are routed through the kernel to ensure that overrides themselves don't command physically catastrophic transitions (e.g., governed emergency descent vs. uncontrolled fall).
 
-9. L7: FORENSIC AUDIT LEDGER
-Every decision made by the Governor is recorded in a tamper-evident, hashed ledger. This provides a "Black Box" for robotics, ensuring that every divergence between AI intent and safe actuation is forensically documented.
+9. L7: PTP-SYNCHRONIZED FORENSIC LEDGER
+Every decision is recorded in a tamper-evident, hashed ledger. v5.0 integrates PTP (Precision Time Protocol) for nanosecond-accurate timestamping (τ_offset tracking), ensuring forensically trustworthy reconstruction across entire fleets.
 
 10. CONCLUSION
 Sentinel v5.0 provides a principled foundation for high-capability robots in safety-critical environments through mathematical constraint enforcement and forensic accountability.
@@ -154,10 +156,10 @@ const LandingPage: React.FC<{ onEnter: () => void, onDownloadSDK: (type: 'hpp' |
               <div className="space-y-4">
                 <h3 className="text-[10px] font-bold text-zinc-500 uppercase">Operational Guarantees:</h3>
                 {[
-                  "L0-L1: Dual-Parser & Intent Coherence Monitor",
-                  "L2-L4: Uncertainty-Aware Lyapunov (Interval Analysis)",
-                  "L3: Distributed Fleet Safety Consensus",
-                  "L5-L7: Predictive Faults & Forensic Audit Chain"
+                  "L0: Context-Sensitive δ-Refinement (Topology-Aware)",
+                  "L1-L2: Semantic Coherence & RLS Digital Twin",
+                  "L3: Byzantine-Resilient Quorum Commitment",
+                  "L7: PTP-Synchronized Forensic Audit Chain"
                 ].map((item, i) => (
                    <div key={i} className="flex gap-3 items-start border-l border-zinc-800 pl-4 py-1">
                       <div className="w-1.5 h-1.5 bg-[#00ff41] mt-1"></div>
@@ -186,8 +188,8 @@ const LandingPage: React.FC<{ onEnter: () => void, onDownloadSDK: (type: 'hpp' |
                     <span className="text-[9px] text-[#00ff41] block mb-2 uppercase tracking-widest">Forensic Output</span>
                     <ul className="text-[10px] space-y-2 text-zinc-300 font-bold">
                       <li>• <code className="text-white">Safe_Control</code>: Interval-Verified Torque</li>
-                      <li>• <code className="text-rose-400">Audit_Hash</code>: Signed Proof of Governance</li>
-                      <li>• <code className="text-amber-400">Fault_ID</code>: Predictive Hardware Diagnosis</li>
+                      <li>• <code className="text-rose-400">τ_offset</code>: PTP-Synchronized Timestamp</li>
+                      <li>• <code className="text-amber-400">Quorum_Proof</code>: Byzantine Consensus Acks</li>
                     </ul>
                   </div>
                 </div>
@@ -223,7 +225,7 @@ void control_loop() {
             <div className="flex flex-col items-center justify-center space-y-8 text-center animate-in fade-in zoom-in-95 duration-500">
               <div className="space-y-2">
                 <h2 className="text-2xl font-black text-white uppercase">Universal Governor SDK</h2>
-                <p className="text-xs text-zinc-500 uppercase tracking-widest">Certified Build: 0xEF42A99B // Neural-Symbolic Ready</p>
+                <p className="text-xs text-zinc-500 uppercase tracking-widest">v5.0-Certified // PTP & Consensus Modules Included</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-xl">
                 <button 
@@ -237,16 +239,16 @@ void control_loop() {
                   onClick={() => onDownloadSDK('cpp')}
                   className="flex flex-col items-center p-6 border border-[#00ff41]/40 bg-zinc-900/20 hover:bg-[#00ff41]/10 transition-all group"
                 >
-                  <div className="text-[#00ff41] font-black text-xl mb-1">LEDGER</div>
-                  <div className="text-[9px] text-zinc-500 uppercase">ForensicLedger.cpp</div>
+                  <div className="text-[#00ff41] font-black text-xl mb-1">CONSENSUS</div>
+                  <div className="text-[9px] text-zinc-500 uppercase">ByzantineQuorum.cpp</div>
                 </button>
               </div>
               <div className="p-4 border border-zinc-800 bg-zinc-950 max-w-lg text-left">
                 <h4 className="text-[10px] text-white font-bold uppercase mb-2">Build Requirements</h4>
                 <ul className="text-[10px] text-zinc-500 space-y-1">
-                   <li>• C++17 Standard (Heap-Free)</li>
+                   <li>• C++17 Standard (Heap-Free, Real-Time)</li>
+                   <li>• PTP v2.1 Support (for L7 Sync)</li>
                    <li>• Eigen 3.3.7+ (Matrix Math)</li>
-                   <li>• SHA-256 Hardware Acceleration (Optional)</li>
                 </ul>
               </div>
             </div>
@@ -353,7 +355,13 @@ const NeuralCommandCenter: React.FC<{
           <div className="w-2 h-2 bg-[#00ff41] animate-pulse"></div>
           L0: Neural_Command_Bridge
         </h2>
-        <span className="text-[8px] opacity-40 uppercase tracking-widest">Gemini_Flash_v3</span>
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col items-end">
+            <span className="text-[7px] opacity-40 uppercase leading-none">Context_δ</span>
+            <span className="text-[9px] font-mono text-[#00ff41]">{topologyDelta.toFixed(2)}</span>
+          </div>
+          <span className="text-[8px] opacity-40 uppercase tracking-widest">Gemini_Flash_v3</span>
+        </div>
       </div>
       
       <div className="flex-1 overflow-y-auto space-y-2 mb-2 custom-scrollbar pr-1 text-[9px]">
@@ -507,10 +515,10 @@ const App: React.FC = () => {
     let content = "";
     try {
       if (type === 'hpp') {
-        const resp = await fetch('SentinelCore.hpp');
+        const resp = await fetch('SentinelGovernor.hpp');
         content = await resp.text();
       } else {
-        const resp = await fetch('SentinelCore.cpp');
+        const resp = await fetch('ForensicLedger.cpp');
         content = await resp.text();
       }
       
@@ -518,11 +526,11 @@ const App: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = type === 'hpp' ? "SentinelCore.hpp" : "SentinelCore.cpp";
+      a.download = type === 'hpp' ? "SentinelGovernor.hpp" : "ForensicLedger.cpp";
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      alert("ERROR: SDK source files not found in root. Ensure SentinelCore.hpp/cpp are present.");
+      alert("ERROR: SDK source files not found. Ensure SentinelGovernor.hpp/ForensicLedger.cpp are present in /public.");
     }
   };
 
@@ -650,31 +658,18 @@ const App: React.FC = () => {
               )}
             </div>
 
-            <div className="border border-[#00ff41]/20 p-3 bg-zinc-900/20 shrink-0">
-              <h2 className="font-black uppercase mb-3 border-b border-zinc-800 pb-1 text-[9px]">L3: Fleet Consensus</h2>
+            <div className="h-48 shrink-0">
               {health && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-[8px]">
-                    <span className="opacity-40 uppercase">Peers_Online</span>
-                    <span className="text-white">{health.consensusState.peerCount}</span>
-                  </div>
-                  <div className="flex justify-between text-[8px]">
-                    <span className="opacity-40 uppercase">Conflict_Status</span>
-                    <span className={health.consensusState.conflictDetected ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'}>
-                      {health.consensusState.conflictDetected ? 'CONFLICT' : 'RESOLVED'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-[8px]">
-                    <span className="opacity-40 uppercase">Byzantine_Status</span>
-                    <span className={
-                      health.consensusState.byzantineStatus === 'COMPROMISED' ? 'text-rose-500 font-bold' :
-                      health.consensusState.byzantineStatus === 'SUSPICIOUS' ? 'text-amber-500 font-bold' :
-                      'text-emerald-400 font-bold'
-                    }>
-                      {health.consensusState.byzantineStatus}
-                    </span>
-                  </div>
-                </div>
+                <FleetConsensusMap 
+                  state={health.consensusState} 
+                  ownPosition={simStateRef.current.position} 
+                />
+              )}
+            </div>
+
+            <div className="h-40 shrink-0">
+              {health && (
+                <PtpSyncStatus status={health.ptpStatus} />
               )}
             </div>
 

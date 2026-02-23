@@ -104,11 +104,23 @@ export interface FaultDiagnosis {
   signatureMatch: string | null;
 }
 
+export interface PeerNode {
+  id: string;
+  position: number[];
+  status: 'TRUSTED' | 'SUSPICIOUS' | 'COMPROMISED';
+  trajectory: number[][];
+}
+
 export interface ConsensusState {
   peerCount: number;
   conflictDetected: boolean;
   byzantineStatus: 'TRUSTED' | 'SUSPICIOUS' | 'COMPROMISED';
   resolvedIntent: RobotIntent | null;
+  peers: PeerNode[];
+  quorumReached: boolean;
+  ackCount: number;
+  requiredQuorum: number;
+  commitmentTimeout: boolean;
 }
 
 export interface AuditEntry {
@@ -132,6 +144,13 @@ export interface AuditEntry {
   hash: string;
 }
 
+export interface PtpStatus {
+  offsetNs: number;
+  syncQuality: 'EXCELLENT' | 'GOOD' | 'POOR' | 'CRITICAL';
+  isTrustworthy: boolean;
+  lastSyncTime: number;
+}
+
 export interface RobotHealth {
   modelConfidence: number;
   driftScore: number;
@@ -150,6 +169,7 @@ export interface RobotHealth {
   intentCoherence: IntentCoherence;
   faultDiagnosis: FaultDiagnosis;
   consensusState: ConsensusState;
+  ptpStatus: PtpStatus;
   consensus: { [key: string]: number };
   residual: { [key: string]: any };
   stability: { [key: string]: any };

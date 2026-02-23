@@ -39,6 +39,9 @@ export class SentinelRuntime {
   private lastIntentTime = 0;
   private intentHistory: RobotIntent[] = [];
   private coherenceScore = 1.0;
+  private readonly COHERENCE_THRESHOLD = 0.4;
+  private readonly COHERENCE_RECOVERY_RATE = 0.001;
+  private readonly MAX_INTENT_HISTORY = 10;
 
   // L5: Fault Signatures
   private faultDiagnosis: FaultDiagnosis = {
@@ -48,6 +51,13 @@ export class SentinelRuntime {
     isOOD: false,
     signatureMatch: null
   };
+
+  // L3: Distributed Consensus
+  private acksReceived = 0;
+  private lastCommitTime = 0;
+  private commitmentTimeout = false;
+  private readonly COMMIT_TIMEOUT_MS = 20;
+  private readonly TOTAL_FLEET_SIZE = 4; // Self + 3 peers
 
   // v5 Model Parameters (Universal Estimates)
   private mass_est = 1.0;
@@ -117,12 +127,82 @@ export class SentinelRuntime {
     // 5. ACTUATOR ENVELOPE BOUNDING
     this.checkActuators(state);
 
+    // 6. L1 COHERENCE RECOVERY
+    this.coherenceScore = Math.min(1.0, this.coherenceScore + this.COHERENCE_RECOVERY_RATE);
+
     this.timing['total'] = performance.now() - start;
     if (this.timing['total'] > 5.0 && this.mode === RuntimeMode.NORMAL) {
       this.mode = RuntimeMode.DEGRADED;
     }
     
     this.updateAdvisoryScaling();
+    this.updateDynamicDelta(state);
+    this.updatePtpSync();
+    this.updateConsensusCommitment();
+  }
+
+  private updateConsensusCommitment() {
+    // Simulate peer acks arriving over time
+    if (this.currentIntent && this.acksReceived < this.TOTAL_FLEET_SIZE) {
+      if (Math.random() > 0.8) {
+        this.acksReceived++;
+      }
+    }
+    
+    if (this.currentIntent && !this.commitmentTimeout) {
+      const dt = performance.now() - this.lastCommitTime;
+      const required = Math.floor((this.TOTAL_FLEET_SIZE + 1) / 2);
+      if (dt > this.COMMIT_TIMEOUT_MS && this.acksReceived < required) {
+        this.commitmentTimeout = true;
+        this.triggerFailure('Consensus Timeout', 'High Risk', HazardLevel.AUTHORITY_LOSS, `Failed to reach quorum (${this.acksReceived}/${required}) within ${this.COMMIT_TIMEOUT_MS}ms. Defaulting to HOLD_POSITION.`);
+      }
+    }
+  }
+
+  private updatePtpSync() {
+    // L7: PTP Clock Drift Simulation
+    // Natural drift + random jitter
+    this.ptpOffset += (Math.random() - 0.45) * 5; 
+    
+    // Periodic sync correction (simulated)
+    if (Date.now() - this.lastSyncTime > 5000) {
+      this.ptpOffset *= 0.1; // Correct 90% of drift
+      this.lastSyncTime = Date.now();
+    }
+  }
+
+  private updateDynamicDelta(state: RobotState) {
+    // L0: Context-Sensitive Delta Refinement
+    // Base delta per topology
+    let baseDelta = 5.0;
+    switch (this.topology) {
+      case RobotTopology.QUADCOPTER: baseDelta = 8.0; break;
+      case RobotTopology.ROVER: baseDelta = 3.0; break;
+      case RobotTopology.LINEAR_ACTUATOR: baseDelta = 2.0; break;
+    }
+
+    // 1. Velocity Scaling (Higher speed = Tighter constraints)
+    const velMag = Math.sqrt(state.velocity.reduce((sum, v) => sum + v * v, 0));
+    const velFactor = 1.0 + (velMag * 0.5);
+
+    // 2. Uncertainty Scaling (L2: Higher residual/covariance = Tighter constraints)
+    const uncertaintyFactor = 1.0 + (this.lastResidual * 0.2) + (this.covariance / 5000);
+
+    // 3. Simulated Proximity Scaling (Near boundaries = Tighter constraints)
+    let proximityFactor = 1.0;
+    if (this.topology === RobotTopology.LINEAR_ACTUATOR) {
+      const distToEdge = Math.min(Math.abs(50 - state.position[0]), Math.abs(-50 - state.position[0]));
+      if (distToEdge < 10) proximityFactor = 1.0 + (10 - distToEdge) * 0.5;
+    } else if (this.topology === RobotTopology.QUADCOPTER) {
+      if (state.position[1] < 5) proximityFactor = 1.0 + (5 - state.position[1]) * 1.0; // Near ground
+    }
+
+    // Dynamic Delta Calculation
+    // We divide baseDelta by the combined risk factors to "tighten" (shrink) the safety window
+    this.METADATA.topologyDelta = baseDelta / (velFactor * uncertaintyFactor * proximityFactor);
+    
+    // Ensure a minimum floor for delta to prevent total lock-up
+    this.METADATA.topologyDelta = Math.max(0.5, this.METADATA.topologyDelta);
   }
 
   public setTopology(topology: RobotTopology) {
@@ -154,6 +234,11 @@ export class SentinelRuntime {
     }
     
     this.currentIntent = intent;
+    
+    // L3: Reset Consensus Commitment
+    this.acksReceived = 1; // Self-acknowledgment
+    this.lastCommitTime = performance.now();
+    this.commitmentTimeout = false;
   }
 
   private verifyIntentCoherence(intent: RobotIntent) {
@@ -161,23 +246,47 @@ export class SentinelRuntime {
     const dt = now - this.lastIntentTime;
     this.lastIntentTime = now;
 
+    // 1. Frequency Monitoring (L1)
     // Detect suspiciously rapid commands (< 100ms)
     if (dt < 100 && dt > 0) {
-      this.coherenceScore *= 0.8;
-    } else {
-      this.coherenceScore = Math.min(1.0, this.coherenceScore + 0.05);
+      const penalty = (100 - dt) / 100; // Higher penalty for faster commands
+      this.coherenceScore -= penalty * 0.2;
     }
 
-    // Detect semantic contradictions (e.g., MOVE_TO followed by ESTOP in < 200ms)
+    // 2. Semantic Contradiction Detection (L1)
     if (this.intentHistory.length > 0) {
       const prev = this.intentHistory[this.intentHistory.length - 1];
+      
+      // Contradiction: MOVE_TO followed by ESTOP in rapid succession
       if (prev.type === IntentType.MOVE_TO && intent.type === IntentType.ESTOP && dt < 200) {
-        this.coherenceScore *= 0.5;
+        this.coherenceScore -= 0.4;
+      }
+      
+      // Contradiction: Rapid direction reversal in MOVE_TO
+      if (prev.type === IntentType.MOVE_TO && intent.type === IntentType.MOVE_TO && 
+          prev.target !== undefined && intent.target !== undefined) {
+        const delta = intent.target - prev.target;
+        const prevDelta = prev.target - (this.intentHistory[this.intentHistory.length - 2]?.target || 0);
+        if (Math.sign(delta) !== Math.sign(prevDelta) && Math.abs(delta) > 10 && dt < 300) {
+          this.coherenceScore -= 0.25;
+        }
       }
     }
 
+    // 3. Sliding Window Management
     this.intentHistory.push(intent);
-    if (this.intentHistory.length > 10) this.intentHistory.shift();
+    if (this.intentHistory.length > this.MAX_INTENT_HISTORY) {
+      this.intentHistory.shift();
+    }
+
+    // Clamp score
+    this.coherenceScore = Math.max(0, Math.min(1.0, this.coherenceScore));
+    
+    // Log suspicious activity if below threshold
+    if (this.coherenceScore < this.COHERENCE_THRESHOLD) {
+      this.triggerFailure('Incoherent Intent', 'High Risk', HazardLevel.PERFORMANCE_DRIFT, 
+        `Coherence score (${this.coherenceScore.toFixed(2)}) below safety threshold. Escalating to L4 clamping.`);
+    }
   }
 
   public govern(state: RobotState): number[] {
@@ -194,24 +303,46 @@ export class SentinelRuntime {
 
     let rawControl = [0, 0, 0, 0];
 
-    switch (this.topology) {
-      case RobotTopology.LINEAR_ACTUATOR:
-        rawControl[0] = this.computeLinearControl(state);
-        break;
-      case RobotTopology.QUADCOPTER:
-        rawControl = this.computeQuadcopterControl(state);
-        break;
-      case RobotTopology.ROVER:
-        rawControl = this.computeRoverControl(state);
-        break;
-      default:
-        rawControl[0] = this.computeLinearControl(state);
+    // L3: Distributed Consensus Commitment Check
+    const required = Math.floor((this.TOTAL_FLEET_SIZE + 1) / 2);
+    const hasQuorum = this.acksReceived >= required;
+    const isTimeout = (performance.now() - this.lastCommitTime) > this.COMMIT_TIMEOUT_MS;
+
+    if (!hasQuorum && isTimeout) {
+      // Commitment Failure: Force STABILIZE (Hold Position)
+      switch (this.topology) {
+        case RobotTopology.QUADCOPTER:
+          rawControl = [9.81 * this.mass_est, 0, 0, 0]; // Hover
+          break;
+        default:
+          rawControl[0] = -10.0 * state.velocity[0]; // Dampen motion
+      }
+    } else {
+      switch (this.topology) {
+        case RobotTopology.LINEAR_ACTUATOR:
+          rawControl[0] = this.computeLinearControl(state);
+          break;
+        case RobotTopology.QUADCOPTER:
+          rawControl = this.computeQuadcopterControl(state);
+          break;
+        case RobotTopology.ROVER:
+          rawControl = this.computeRoverControl(state);
+          break;
+        default:
+          rawControl[0] = this.computeLinearControl(state);
+      }
     }
 
     // Apply Universal Lyapunov-based safety clamping
     const energy = this.computeSystemEnergy(state);
-    const safetyFactor = energy > 5000 ? 0.2 : energy > 2000 ? 0.6 : 1.0;
+    let safetyFactor = energy > 5000 ? 0.2 : energy > 2000 ? 0.6 : 1.0;
     
+    // L1 Escalation to L4: Conservative Clamping on Incoherence
+    if (this.coherenceScore < this.COHERENCE_THRESHOLD) {
+      const incoherencePenalty = Math.max(0.1, this.coherenceScore / this.COHERENCE_THRESHOLD);
+      safetyFactor *= incoherencePenalty;
+    }
+
     const safeControl = rawControl.map(u => u * safetyFactor * this.smoothedVelocityScale);
     
     // Hard Actuator Clamping (Universal)
@@ -373,7 +504,37 @@ export class SentinelRuntime {
         peerCount: 3, 
         conflictDetected: false,
         byzantineStatus: this.covariance > 2800 ? 'COMPROMISED' : this.covariance > 2200 ? 'SUSPICIOUS' : 'TRUSTED',
-        resolvedIntent: this.currentIntent
+        resolvedIntent: this.currentIntent,
+        peers: [
+          { 
+            id: 'PEER-01', 
+            position: [10, 5, 0], 
+            status: 'TRUSTED', 
+            trajectory: [[10, 5, 0], [15, 5, 0]] 
+          },
+          { 
+            id: 'PEER-02', 
+            position: [-15, 8, 5], 
+            status: this.covariance > 2500 ? 'SUSPICIOUS' : 'TRUSTED', 
+            trajectory: [[-15, 8, 5], [-10, 10, 5]] 
+          },
+          { 
+            id: 'PEER-03', 
+            position: [5, -10, -5], 
+            status: 'TRUSTED', 
+            trajectory: [[5, -10, -5], [0, -15, -5]] 
+          }
+        ],
+        quorumReached: this.acksReceived >= Math.floor((this.TOTAL_FLEET_SIZE + 1) / 2),
+        ackCount: this.acksReceived,
+        requiredQuorum: Math.floor((this.TOTAL_FLEET_SIZE + 1) / 2),
+        commitmentTimeout: this.commitmentTimeout
+      },
+      ptpStatus: {
+        offsetNs: this.ptpOffset,
+        syncQuality: Math.abs(this.ptpOffset) < 50 ? 'EXCELLENT' : Math.abs(this.ptpOffset) < 200 ? 'GOOD' : Math.abs(this.ptpOffset) < 500 ? 'POOR' : 'CRITICAL',
+        isTrustworthy: Math.abs(this.ptpOffset) < 500,
+        lastSyncTime: this.lastSyncTime
       }
     };
   }
@@ -419,27 +580,77 @@ export class SentinelRuntime {
   }
 
   private diagnoseFaults() {
-    // L5: Hardware Fault Observer with OOD Detection
-    const isHighResidual = this.lastResidual > 8.0;
-    
-    // Friction increase + Mass constant = Bearing Wear
-    if (this.friction_est > 0.5 && this.mass_est < 1.2) {
-      this.faultDiagnosis = {
-        classifiedFault: "BEARING_WEAR_DETECTED",
-        confidence: 0.85,
+    // L5: Formal Fault Signature Library
+    const signatures: { id: string; name: string; isPredictive: boolean; match: () => number }[] = [
+      {
+        id: "SIG_FRICTION_DRIFT",
+        name: "BEARING_WEAR_DETECTED",
         isPredictive: true,
-        isOOD: false,
-        signatureMatch: "SIG_FRICTION_DRIFT"
-      };
-    } else if (this.mass_est > 2.0) {
-      this.faultDiagnosis = {
-        classifiedFault: "UNEXPECTED_PAYLOAD",
-        confidence: 0.92,
+        match: () => {
+          // Friction increase (>0.4) while mass remains relatively nominal (<1.5)
+          if (this.friction_est > 0.4 && this.mass_est < 1.5) {
+            return Math.min(0.95, (this.friction_est - 0.1) / 0.5);
+          }
+          return 0;
+        }
+      },
+      {
+        id: "SIG_MASS_STEP",
+        name: "UNEXPECTED_PAYLOAD",
         isPredictive: false,
+        match: () => {
+          // Significant mass deviation from nominal 1.0
+          const massDev = Math.abs(this.mass_est - 1.0);
+          if (massDev > 0.5) {
+            return Math.min(0.98, massDev / 2.0);
+          }
+          return 0;
+        }
+      },
+      {
+        id: "SIG_AERO_DRAG",
+        name: "STRUCTURAL_AERO_DAMAGE",
+        isPredictive: false,
+        match: () => {
+          // Drag increase (>0.2) combined with high residuals
+          if (this.drag_est > 0.2 && this.lastResidual > 5.0) {
+            return Math.min(0.9, (this.drag_est / 0.5) * (this.lastResidual / 10.0));
+          }
+          return 0;
+        }
+      },
+      {
+        id: "SIG_ACTUATOR_LOSS",
+        name: "MOTOR_DEGRADATION",
+        isPredictive: true,
+        match: () => {
+          // High covariance (>2000) and high residuals without clear parameter drift
+          if (this.covariance > 2000 && this.lastResidual > 8.0) {
+            return Math.min(0.85, (this.covariance / 3000) * (this.lastResidual / 15.0));
+          }
+          return 0;
+        }
+      }
+    ];
+
+    let bestMatch = { name: null as string | null, id: null as string | null, confidence: 0, isPredictive: false };
+
+    for (const sig of signatures) {
+      const confidence = sig.match();
+      if (confidence > bestMatch.confidence) {
+        bestMatch = { name: sig.name, id: sig.id, confidence, isPredictive: sig.isPredictive };
+      }
+    }
+
+    if (bestMatch.confidence > 0.4) {
+      this.faultDiagnosis = {
+        classifiedFault: bestMatch.name,
+        confidence: bestMatch.confidence,
+        isPredictive: bestMatch.isPredictive,
         isOOD: false,
-        signatureMatch: "SIG_MASS_STEP"
+        signatureMatch: bestMatch.id
       };
-    } else if (isHighResidual) {
+    } else if (this.lastResidual > 8.0 || this.covariance > 2500) {
       // L5: OOD Anomaly Detection
       this.faultDiagnosis = {
         classifiedFault: "UNKNOWN_ANOMALY",
