@@ -3,7 +3,9 @@ export enum RobotTopology {
   LINEAR_ACTUATOR = 'Linear Actuator (1-DOF)',
   QUADCOPTER = 'Quadcopter (3D-Flight)',
   ROVER = 'Mobile Rover (2D-Traction)',
-  INDUSTRIAL_ARM = 'Robotic Arm (2-DOF)'
+  INDUSTRIAL_ARM = 'Robotic Arm (2-DOF)',
+  EVTOL = 'eVTOL (Multi-Rotor Flight)',
+  ROCKET = 'Rocket (Vertical Ascent)'
 }
 
 export enum RuntimeMode {
@@ -76,7 +78,20 @@ export interface ModelMetadata {
   topologyDelta: number; // L0 Topology-Aware Reconciliation Delta
 }
 
+export interface RigidBodyParameters {
+  id: string;
+  mass: number;
+  friction: number;
+  drag: number;
+  covariance: number;
+  lastResidual: number;
+  lambda: number;
+}
+
 export interface DigitalTwinState {
+  bodies: RigidBodyParameters[];
+  isMultiBody: boolean;
+  totalMass: number;
   estimatedMass: number;
   estimatedFriction: number;
   estimatedDrag: number;
@@ -86,6 +101,13 @@ export interface DigitalTwinState {
   uncertaintyTube: {
     vMin: number;
     vMax: number;
+  };
+  aero?: {
+    machNumber: number;
+    atmosphericDensity: number;
+    dragCoefficient: number;
+    speedOfSound: number;
+    altitude: number;
   };
 }
 
@@ -151,6 +173,145 @@ export interface PtpStatus {
   lastSyncTime: number;
 }
 
+export interface MissionEvent {
+  id: string;
+  timestamp: number;
+  label: string;
+  expectedMassDelta?: number;
+  expectedFrictionDelta?: number;
+  expectedDragDelta?: number;
+  transitionWindowMs: number;
+  isSeparation?: boolean;
+}
+
+export interface MissionPhaseState {
+  currentEventId: string | null;
+  nextEventId: string | null;
+  timeToNextEvent: number;
+  isPreparing: boolean;
+  isTransitioning: boolean;
+  tau_prepare: number;
+}
+
+export enum PlatformType {
+  ARM_CORTEX_M7 = 'ARM Cortex-M7 (Embedded)',
+  X86_SIMULATION = 'x86 (Simulation)',
+  FPGA_ACCELERATED = 'FPGA (High-Performance)',
+  RAD_HARD_PROCESSOR = 'Rad-Hard (Space-Grade)'
+}
+
+export interface PlatformDescriptor {
+  type: PlatformType;
+  actuatorWriteLatencyUs: number;
+  sensorReadLatencyUs: number;
+  interruptPriority: number;
+  clockSource: 'INTERNAL' | 'EXTERNAL_PTP' | 'ATOMIC_REF';
+  innerLoopTimingBudgetUs: number;
+  floatingPointLatencyCycles: number;
+}
+
+export interface VerificationStatus {
+  isVerified: boolean;
+  dRealCertificate: string;
+  coqProofHash: string;
+  intervalStabilityGuaranteed: boolean;
+  convexProjectionAdmissible: boolean;
+  verificationTimestamp: number;
+}
+
+export interface RequirementTrace {
+  id: string;
+  description: string;
+  status: 'VERIFIED' | 'PENDING' | 'FAILED';
+  linkedCodeModules: string[];
+}
+
+export interface CoverageMetrics {
+  statement: number;
+  branch: number;
+  mcdc: number;
+}
+
+export interface ProblemReport {
+  id: string;
+  summary: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  status: 'OPEN' | 'INVESTIGATING' | 'RESOLVED';
+  discoveryTimestamp: number;
+}
+
+export interface ComplianceStatus {
+  dalLevel: 'A' | 'B' | 'C' | 'D' | 'E';
+  requirementsTraceability: number; // percentage
+  structuralCoverage: CoverageMetrics;
+  openProblemReports: number;
+  configurationManagementHash: string;
+  isCertified: boolean;
+}
+
+export interface SafetyCriticalFunction {
+  id: string;
+  name: string;
+  hazardContribution: string;
+  controls: string[];
+  ssaStatus: 'COMPLETE' | 'IN_PROGRESS' | 'PENDING';
+}
+
+export interface IvvStatus {
+  isIndependent: boolean;
+  contractorId: string;
+  verifiedLayers: string[];
+  lastAuditTimestamp: number;
+}
+
+export interface NasaComplianceStatus {
+  standard: 'NASA-STD-8739.8';
+  softwareSafetyAnalysis: SafetyCriticalFunction[];
+  ivv: IvvStatus;
+  isMissionReady: boolean;
+}
+
+export interface RotorHealth {
+  id: string;
+  currentDraw: number;
+  rpm: number;
+  vibration: number;
+  healthScore: number; // 0.0 to 1.0
+  status: 'NOMINAL' | 'DEGRADED' | 'FAILED';
+}
+
+export interface ControlAllocation {
+  activeMatrixId: string; // e.g., "NOMINAL", "ROTOR_3_FAIL", "ROTOR_1_4_FAIL"
+  isDegraded: boolean;
+  redistributionActive: boolean;
+}
+
+export interface EvtolGovernance {
+  rotors: RotorHealth[];
+  allocation: ControlAllocation;
+  emergencyLandingActive: boolean;
+  nearestSafeZone: string;
+}
+
+export interface FtsStatus {
+  isArmed: boolean;
+  isTriggered: boolean;
+  terminationReason: string | null;
+  recoverabilityScore: number; // 0.0 to 1.0
+  isRecoveryAttempted: boolean;
+  safeCorridor: {
+    minX: number;
+    maxX: number;
+    maxDrift: number;
+  };
+}
+
+export interface RocketGovernance {
+  fts: FtsStatus;
+  stageStatus: 'BOOSTER_ACTIVE' | 'STAGING' | 'UPPER_STAGE';
+  remainingFlightTime: number;
+}
+
 export interface RobotHealth {
   modelConfidence: number;
   driftScore: number;
@@ -158,6 +319,8 @@ export interface RobotHealth {
   hazardLevel: HazardLevel;
   runtimeMode: RuntimeMode;
   wcet_ms: number;
+  innerLoopWCET: number; // microseconds
+  executionMode: '1kHz' | '10kHz';
   lyapunov: LyapunovMatrix;
   actuators: ActuatorHealth;
   metadata: ModelMetadata;
@@ -170,6 +333,13 @@ export interface RobotHealth {
   faultDiagnosis: FaultDiagnosis;
   consensusState: ConsensusState;
   ptpStatus: PtpStatus;
+  missionPhase: MissionPhaseState;
+  platform: PlatformDescriptor;
+  verification: VerificationStatus;
+  compliance: ComplianceStatus;
+  nasaCompliance: NasaComplianceStatus;
+  evtolGovernance?: EvtolGovernance;
+  rocketGovernance?: RocketGovernance;
   consensus: { [key: string]: number };
   residual: { [key: string]: any };
   stability: { [key: string]: any };
