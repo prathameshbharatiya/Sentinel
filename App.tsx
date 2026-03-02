@@ -16,6 +16,7 @@ import ComplianceDashboard from './components/ComplianceDashboard';
 import NasaCompliancePanel from './components/NasaCompliancePanel';
 import RotorGovernancePanel from './components/RotorGovernancePanel';
 import FtsGovernancePanel from './components/FtsGovernancePanel';
+import IntegrationTerminal from './components/IntegrationTerminal';
 
 const PaperContent = `
 SENTINEL V5.0: A UNIVERSAL NEURAL-SYMBOLIC GOVERNOR FOR ZERO-TRUST ROBOTIC AUTONOMY
@@ -230,29 +231,8 @@ const LandingPage: React.FC<{ onEnter: () => void, onDownloadSDK: (type: 'hpp' |
                   </div>
                 </div>
               </div>
-              <div className="md:col-span-7 border border-zinc-800 bg-black p-4 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-2 text-[8px] bg-zinc-900 text-zinc-500 uppercase">governor.cpp (Snippet)</div>
-                <pre className="text-[10px] text-[#00ff41]/80 leading-relaxed overflow-x-auto whitespace-pre h-[300px] custom-scrollbar">
-{`#include "SentinelGovernor.hpp"
-
-// Initialize for Quadcopter Topology
-sentinel::Governor kernel(Topology::QUADCOPTER);
-
-void control_loop() {
-    // 1. Get AI Intent from Neural Bridge
-    auto intent = neural_bridge.get_latest();
-
-    // 2. Step the Universal Governor
-    // Enforces Lyapunov stability & records to Ledger
-    auto safe_u = kernel.govern(robot_state, intent);
-
-    // 3. Actuate with Zero-Trust Proof
-    motors.write(safe_u);
-    
-    // 4. Broadcast Forensic Hash for Audit
-    telemetry.send_audit(kernel.get_last_hash());
-}`}
-                </pre>
+              <div className="md:col-span-7 h-[450px]">
+                <IntegrationTerminal />
               </div>
             </div>
           )}
