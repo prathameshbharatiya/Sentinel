@@ -173,7 +173,13 @@ export class SentinelRuntime {
       }
     },
     stageStatus: 'BOOSTER_ACTIVE',
-    remainingFlightTime: 180
+    remainingFlightTime: 180,
+    engine: {
+      chamberPressure: 3000,
+      isp: 320,
+      massFlowRate: 0,
+      propellantRemaining: 5000
+    }
   };
 
   // Precomputed Allocation Matrices (Simulated Flash Storage)
@@ -386,6 +392,33 @@ export class SentinelRuntime {
     }
   }
 
+  private monitorPropellant(state: RobotState) {
+    if (this.topology !== RobotTopology.ROCKET) return;
+    
+    // L2: Propellant Mass Flow Observer
+    // m_dot = -F_thrust / (I_sp * g0)
+    const g0 = 9.81;
+    const thrust = Math.max(0, state.controlInput[0]);
+    
+    // Simulate chamber pressure telemetry (psi)
+    // Nominal thrust 100 -> ~3000 psi
+    this.rocketGovernance.engine.chamberPressure = (thrust / 100) * 3000 + (Math.random() - 0.5) * 50;
+    
+    // Estimate I_sp from chamber pressure
+    // Simplified model: I_sp = 280 + 0.02 * P_chamber
+    this.rocketGovernance.engine.isp = 280 + 0.02 * this.rocketGovernance.engine.chamberPressure;
+    
+    // Calculate mass flow rate (kg/s)
+    const m_dot = thrust / (this.rocketGovernance.engine.isp * g0);
+    this.rocketGovernance.engine.massFlowRate = m_dot;
+    
+    // Update remaining propellant
+    this.rocketGovernance.engine.propellantRemaining = Math.max(0, this.rocketGovernance.engine.propellantRemaining - m_dot * 0.1);
+    
+    // Feed to L2 Estimator (dm/dt)
+    this.bodies[0].mass = Math.max(0.1, this.bodies[0].mass - m_dot * 0.1);
+  }
+
   public observe(state: RobotState) {
     const start = performance.now();
     
@@ -398,6 +431,9 @@ export class SentinelRuntime {
 
     // L4: Flight Termination System Monitoring
     this.monitorFts(state);
+
+    // L2: Propellant Mass Flow Observer
+    this.monitorPropellant(state);
 
     // 1. DUAL-CHANNEL LOGICAL REDUNDANCY
     const primaryPred = this.predictPrimary(state);
@@ -906,6 +942,21 @@ export class SentinelRuntime {
     this.P[0][1] = this.P[1][0] = 0.0;
 
     const energy = 0.5 * (this.P[0][0] * state.position[0]**2 + this.P[1][1] * state.velocity[0]**2);
+    
+    // L4: Prospective Stability Certification (100ms lookahead)
+    if (this.topology === RobotTopology.ROCKET && this.rocketGovernance.engine.massFlowRate > 0) {
+      const dt_lookahead = 0.1; // 100ms
+      const futureMass = this.bodies[0].mass - this.rocketGovernance.engine.massFlowRate * dt_lookahead;
+      
+      // Check if future mass state remains within stability bounds
+      // Energy scales inversely with mass in this simplified model
+      const futureEnergy = energy * (totalMass / Math.max(0.1, futureMass));
+      if (futureEnergy > 8000) {
+         this.triggerFailure('Prospective Instability', 'High Risk', HazardLevel.STABILITY_DEGRADATION, 'Lyapunov V-tube projection indicates stability violation within 100ms due to mass loss.');
+         if (this.mode !== RuntimeMode.SAFE_FALLBACK) this.mode = RuntimeMode.DEGRADED;
+      }
+    }
+
     if (energy > 8000) {
       this.triggerFailure('Stability Collapse', 'Critical', HazardLevel.CATASTROPHIC, 'Lyapunov energy exceeded proof-bound limit.');
       this.mode = RuntimeMode.SAFE_FALLBACK;

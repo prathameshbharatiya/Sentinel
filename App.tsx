@@ -76,6 +76,9 @@ Sentinel v5.0 provides specialized governance for eVTOL aircraft with multi-roto
 
 17. ROCKET SPECIFIC: FLIGHT TERMINATION SYSTEM (FTS) INTEGRATION
 Sentinel v5.0 introduces a formally verifiable Flight Termination System (FTS) for launch vehicles. Unlike traditional deterministic FTS systems that trigger based on simple boundary crossings, Sentinel's L4 kernel performs real-time recoverability analysis. By projecting the vehicle's state through the Lyapunov V-tube given L2 parameter uncertainty, the kernel distinguishes between recoverable anomalies and catastrophic failures. If the V-tube shows that even the most optimistic parameter estimate cannot return the vehicle to its safe corridor within the remaining flight time, the FTS command is issued. If recovery is possible, the kernel initiates a Governed Recovery sequence (L6), attempting to stabilize the vehicle before escalating to termination. This approach maximizes mission success probability while maintaining absolute range safety.
+
+18. PROPELLANT MASS FLOW OBSERVER AND PROSPECTIVE STABILITY
+For liquid-fueled rockets, Sentinel v5.0 implements a high-fidelity Propellant Mass Flow Observer at L2. The observer models mass depletion using the rocket equation derivative: m_dot = -F_thrust / (I_sp × g₀), where I_sp is dynamically estimated from chamber pressure telemetry. This real-time dm/dt estimate feeds into the multi-body dynamics engine, allowing the L4 kernel to perform prospective stability certification. Instead of checking stability only for the current mass point, the kernel projects the Lyapunov V-tube 100ms into the future along the predicted mass trajectory. This ensures that the vehicle remains stable throughout high-dynamic maneuvers where mass changes rapidly, providing a predictive safety margin that traditional static estimators cannot offer.
 `;
 
 const PaperModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
@@ -188,7 +191,11 @@ const LandingPage: React.FC<{ onEnter: () => void, onDownloadSDK: (type: 'hpp' |
                   "L0.5: Mission Phase Manager (Dynamic Pre-conditioning)",
                   "L1-L2: Semantic Coherence & RLS Digital Twin",
                   "L3: Byzantine-Resilient Quorum Commitment",
-                  "L7: PTP-Synchronized Forensic Audit Chain"
+                  "L4: Rocket FTS & Prospective Stability Certification",
+                  "L6: eVTOL Rotor Failure Governance & Emergency Landing",
+                  "L7: PTP-Synchronized Forensic Audit Chain",
+                  "L8: Formal Verification (dReal/Coq Certified)",
+                  "Compliance: DO-178C DAL-A & NASA-STD-8739.8"
                 ].map((item, i) => (
                    <div key={i} className="flex gap-3 items-start border-l border-zinc-800 pl-4 py-1">
                       <div className="w-1.5 h-1.5 bg-[#00ff41] mt-1"></div>
@@ -203,7 +210,7 @@ const LandingPage: React.FC<{ onEnter: () => void, onDownloadSDK: (type: 'hpp' |
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="md:col-span-5 space-y-6">
                 <h2 className="text-xl font-bold text-white uppercase tracking-tight border-b border-zinc-800 pb-2">Universal Integration</h2>
-                <p className="text-xs text-zinc-400">Sentinel acts as a <span className="text-[#00ff41]">Deterministic Firewall</span> between high-level AI intents and physical motors. It supports any topology via a unified state-space interface.</p>
+                <p className="text-xs text-zinc-400">Sentinel acts as a <span className="text-[#00ff41]">Deterministic Firewall</span> between high-level AI intents and physical motors. It supports any topology via a unified state-space interface, now including <span className="text-white">eVTOL</span> and <span className="text-white">Rocket</span> flight computers.</p>
                 <div className="space-y-4">
                   <div className="bg-black border border-zinc-800 p-4">
                     <span className="text-[9px] text-zinc-600 block mb-2 uppercase tracking-widest">Neural Bridge Input</span>
@@ -254,7 +261,7 @@ void control_loop() {
             <div className="flex flex-col items-center justify-center space-y-8 text-center animate-in fade-in zoom-in-95 duration-500">
               <div className="space-y-2">
                 <h2 className="text-2xl font-black text-white uppercase">Universal Governor SDK</h2>
-                <p className="text-xs text-zinc-500 uppercase tracking-widest">v5.0-Certified // PTP & Consensus Modules Included</p>
+                <p className="text-xs text-zinc-500 uppercase tracking-widest">v5.0-Certified // Aerospace & Space-Grade Modules Included</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-xl">
                 <button 
@@ -268,8 +275,8 @@ void control_loop() {
                   onClick={() => onDownloadSDK('cpp')}
                   className="flex flex-col items-center p-6 border border-[#00ff41]/40 bg-zinc-900/20 hover:bg-[#00ff41]/10 transition-all group"
                 >
-                  <div className="text-[#00ff41] font-black text-xl mb-1">CONSENSUS</div>
-                  <div className="text-[9px] text-zinc-500 uppercase">ByzantineQuorum.cpp</div>
+                  <div className="text-[#00ff41] font-black text-xl mb-1">AEROSPACE</div>
+                  <div className="text-[9px] text-zinc-500 uppercase">FTS_Propellant_Observer.cpp</div>
                 </button>
               </div>
               <div className="p-4 border border-zinc-800 bg-zinc-950 max-w-lg text-left">
@@ -277,6 +284,7 @@ void control_loop() {
                 <ul className="text-[10px] text-zinc-500 space-y-1">
                    <li>• C++17 Standard (Heap-Free, Real-Time)</li>
                    <li>• PTP v2.1 Support (for L7 Sync)</li>
+                   <li>• DO-178C DAL-A Traceability Metadata</li>
                    <li>• Eigen 3.3.7+ (Matrix Math)</li>
                 </ul>
               </div>

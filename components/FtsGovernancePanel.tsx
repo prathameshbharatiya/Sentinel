@@ -1,6 +1,6 @@
 import React from 'react';
 import { RocketGovernance } from '../types';
-import { Rocket, ShieldAlert, ShieldCheck, Activity, Timer, Crosshair } from 'lucide-react';
+import { Rocket, ShieldAlert, ShieldCheck, Activity, Timer, Crosshair, Gauge, Droplets } from 'lucide-react';
 
 interface FtsGovernancePanelProps {
   governance: RocketGovernance;
@@ -8,7 +8,7 @@ interface FtsGovernancePanelProps {
 }
 
 const FtsGovernancePanel: React.FC<FtsGovernancePanelProps> = ({ governance, currentDrift }) => {
-  const { fts, stageStatus, remainingFlightTime } = governance;
+  const { fts, stageStatus, remainingFlightTime, engine } = governance;
   
   const driftPercent = Math.min(100, (Math.abs(currentDrift) / fts.safeCorridor.maxX) * 100);
   const isOutside = Math.abs(currentDrift) > fts.safeCorridor.maxX;
@@ -91,6 +91,41 @@ const FtsGovernancePanel: React.FC<FtsGovernancePanelProps> = ({ governance, cur
             <span className="text-[6px] text-zinc-600">-{fts.safeCorridor.maxDrift}m</span>
             <span className="text-[6px] text-zinc-600">0m</span>
             <span className="text-[6px] text-zinc-600">+{fts.safeCorridor.maxDrift}m</span>
+          </div>
+        </div>
+
+        {/* Engine Telemetry */}
+        <div className="grid grid-cols-2 gap-2 border-t border-zinc-800 pt-2">
+          <div>
+            <div className="text-[6px] text-zinc-500 uppercase flex items-center gap-1 mb-0.5">
+              <Gauge size={6} />
+              P_Chamber
+            </div>
+            <div className="text-[9px] font-mono text-amber-400">
+              {engine.chamberPressure.toFixed(0)} <span className="text-[6px] opacity-50">PSI</span>
+            </div>
+          </div>
+          <div>
+            <div className="text-[6px] text-zinc-500 uppercase flex items-center gap-1 mb-0.5">
+              <Droplets size={6} />
+              m_dot
+            </div>
+            <div className="text-[9px] font-mono text-emerald-400">
+              {engine.massFlowRate.toFixed(2)} <span className="text-[6px] opacity-50">kg/s</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex justify-between text-[6px] text-zinc-500 uppercase mb-0.5">
+            <span>Propellant_Remaining</span>
+            <span>{engine.isp.toFixed(1)}s Isp</span>
+          </div>
+          <div className="h-1 bg-zinc-800">
+            <div 
+              className="h-full bg-blue-500"
+              style={{ width: `${(engine.propellantRemaining / 5000) * 100}%` }}
+            />
           </div>
         </div>
 

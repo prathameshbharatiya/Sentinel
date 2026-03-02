@@ -98,6 +98,7 @@ export interface DigitalTwinState {
   modelResidual: number;
   stabilityMargin: number;
   adaptationRate: number;
+  massFlowRate?: number; // kg/s (dm/dt)
   uncertaintyTube: {
     vMin: number;
     vMax: number;
@@ -310,6 +311,12 @@ export interface RocketGovernance {
   fts: FtsStatus;
   stageStatus: 'BOOSTER_ACTIVE' | 'STAGING' | 'UPPER_STAGE';
   remainingFlightTime: number;
+  engine: {
+    chamberPressure: number; // psi
+    isp: number; // seconds
+    massFlowRate: number; // kg/s
+    propellantRemaining: number; // kg
+  };
 }
 
 export interface RobotHealth {
