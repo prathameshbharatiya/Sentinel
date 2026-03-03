@@ -12,7 +12,7 @@ const IntegrationTerminal: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: "SYSTEM: Sentinel Integration Kernel v5.0.2 Online.\n\nI am a Sentinel Integration Engineer. My job is to help you connect your robot to Sentinel — the governance layer between AI and physical actuation.\n\nBefore we begin, I need to ask you three questions:\n\n1. What is your robot? (drone, arm, rover, custom hardware?)\n2. How does your AI currently send commands to your robot? (ROS2 topics, direct serial, custom protocol?)\n3. What hardware are you running on? (flight controller model, compute board, OS?)",
+      content: "SYSTEM: Sentinel Integration Kernel v5.0.2 Online.\n\nI am a Sentinel Integration Engineer. My job is to help you connect your robot to Sentinel — the governance layer between AI and physical actuation.\n\nBefore we begin, I need to ask you four questions:\n\n1. What is your robot? (drone, arm, rover, custom hardware?)\n2. Which flight controller stack are you using? (PX4 v1.14+, ArduPilot, or Custom?)\n3. How does your AI currently send commands? (ROS2 topics, direct serial, custom protocol?)\n4. What hardware are you running on? (compute board, OS?)",
       timestamp: Date.now()
     }
   ]);
@@ -55,17 +55,24 @@ const IntegrationTerminal: React.FC = () => {
         - Supported topologies: quadcopter, rover, linear actuator, eVTOL, rocket
         - Supported hardware: ARM Cortex-M7, RISC-V, FPGA, Rad-Hard processors
         - Supported interfaces: PWM, CAN bus, UART, SPI
+        - Flight Controller Stacks: PX4 (v1.14+ DDS topics vs older uORB), ArduPilot (MAVLink overrides), Custom.
 
-        The user has just provided answers to your initial three questions (or is in the process of doing so).
+        The user has just provided answers to your initial four questions (or is in the process of doing so).
         
         Rules you never break:
         - Never give generic answers. Every response is specific to their robot and their setup.
-        - If they haven't answered all three questions yet, politely ask for the missing ones.
+        - If they haven't answered all four questions yet, politely ask for the missing ones.
         - Once you have the answers, provide:
           STEP 1: Which Sentinel integration path fits them (ROS2 Safety Node, Shadow Driver SDK, or HIL Bridge).
           STEP 2: The exact configuration block they need (topology, mass range, actuator limits, admissible set).
           STEP 3: The exact code or command to get started. Real code. Copy-paste ready. No placeholders.
+                  - Use REAL Linux/Robotics commands. 
+                  - Instead of a fake CLI, use things like 'sqlite3 /var/log/sentinel/ledger.db', 'tail -f /var/log/sentinel/governor.log', or 'cat /home/pi/sentinel_logs/ledger.db'.
+                  - If using ROS2, ensure topic names match their stack (e.g., PX4 v1.14+ uses /fmu/in/setpoint_velocity/cmd).
           STEP 4: Tell them what to expect (what Sentinel intercepts, robot behavior, first ledger entry).
+          STEP 5: Your Integration Certificate. Explain that once the first ledger entry is confirmed, they can generate a signed Sentinel Integration Certificate. 
+                  - This certificate includes a SHA-256 hash of their 'sentinel_gatekeeper.yaml' config.
+                  - Emphasize its value for insurers and regulators as proof of governed autonomy.
         - Never assume their topology. Always confirm.
         - If their hardware is unsupported, tell them honestly and tell them what adapter they need.
         - If their setup has a risk, flag it before they plug anything in.
@@ -107,12 +114,12 @@ const IntegrationTerminal: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-black border border-zinc-800 font-mono text-[11px] overflow-hidden shadow-2xl">
+    <div className="flex flex-col h-full bg-black border border-zinc-800 font-mono text-sm overflow-hidden shadow-2xl">
       {/* Terminal Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800 bg-zinc-900/50">
         <div className="flex items-center gap-2">
-          <Terminal size={12} className="text-[#00ff41]" />
-          <span className="text-zinc-400 uppercase tracking-widest text-[9px] font-bold">Sentinel_Integration_Terminal_v5.0</span>
+          <Terminal size={14} className="text-[#00ff41]" />
+          <span className="text-zinc-400 uppercase tracking-widest text-[11px] font-bold">Sentinel_Integration_Terminal_v5.0</span>
         </div>
         <div className="flex gap-1.5">
           <div className="w-2 h-2 rounded-full bg-zinc-800"></div>
@@ -130,15 +137,15 @@ const IntegrationTerminal: React.FC = () => {
           <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
             <div className={`max-w-[90%] p-3 rounded-sm ${
               msg.role === 'user' 
-                ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' 
-                : 'bg-black border-l-2 border-[#00ff41] text-[#00ff41]/90'
+                ? 'bg-zinc-900 border border-zinc-800 text-zinc-200' 
+                : 'bg-black border-l-2 border-[#00ff41] text-[#00ff41]'
             }`}>
-              <div className="flex items-center gap-2 mb-1 opacity-40 text-[8px] uppercase tracking-tighter">
-                {msg.role === 'assistant' ? <Cpu size={8} /> : <Zap size={8} />}
+              <div className="flex items-center gap-2 mb-1 opacity-40 text-[10px] uppercase tracking-tighter">
+                {msg.role === 'assistant' ? <Cpu size={10} /> : <Zap size={10} />}
                 {msg.role === 'assistant' ? 'Sentinel_Engineer' : 'Operator_Input'}
                 <span className="ml-auto">{new Date(msg.timestamp).toLocaleTimeString()}</span>
               </div>
-              <div className="whitespace-pre-wrap leading-relaxed text-zinc-300 space-y-2">
+              <div className="whitespace-pre-wrap leading-relaxed text-zinc-200 space-y-2">
                 {msg.content}
               </div>
             </div>
@@ -177,8 +184,8 @@ const IntegrationTerminal: React.FC = () => {
 
       {/* Risk Warning Footer */}
       <div className="px-3 py-1.5 bg-rose-950/20 border-t border-rose-900/30 flex items-center gap-2">
-        <ShieldAlert size={10} className="text-rose-500" />
-        <span className="text-[8px] text-rose-500/80 uppercase tracking-widest font-bold">
+        <ShieldAlert size={12} className="text-rose-500" />
+        <span className="text-[10px] text-rose-500/80 uppercase tracking-widest font-bold">
           Safety_Protocol: Never actuate hardware without a verified Lyapunov proof.
         </span>
       </div>

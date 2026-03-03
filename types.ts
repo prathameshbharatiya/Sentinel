@@ -8,6 +8,13 @@ export enum RobotTopology {
   ROCKET = 'Rocket (Vertical Ascent)'
 }
 
+export enum IndustryProfile {
+  GENERAL_ROBOTICS = 'General Robotics',
+  AEROSPACE_LAUNCH = 'Aerospace & Launch',
+  URBAN_AIR_MOBILITY = 'Urban Air Mobility',
+  FLEET_LOGISTICS = 'Fleet & Logistics'
+}
+
 export enum RuntimeMode {
   NORMAL = 'Normal',
   DEGRADED = 'Degraded',

@@ -19,7 +19,7 @@ const HealthMetric: React.FC<HealthMetricProps> = ({ label, value, inverse = fal
 
   return (
     <div className="mb-4">
-      <div className="flex justify-between text-[10px] uppercase font-bold tracking-tighter text-zinc-400 mb-1">
+      <div className="flex justify-between text-xs uppercase font-bold tracking-tighter text-zinc-400 mb-1">
         <span>{label}</span>
         <span className="mono">{percentage}%</span>
       </div>

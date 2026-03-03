@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { SentinelRuntime } from './services/SentinelRuntime';
-import { RobotState, RobotHealth, HazardLevel, RuntimeMode, IntentType, RobotIntent, RobotTopology, PlatformType } from './types';
+import { RobotState, RobotHealth, HazardLevel, RuntimeMode, IntentType, RobotIntent, RobotTopology, PlatformType, IndustryProfile } from './types';
 import TelemetryChart from './components/TelemetryChart';
 import HealthMetric from './components/HealthMetric';
 import AdvisoryPanel from './components/AdvisoryPanel';
@@ -112,7 +112,12 @@ const PaperModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen
   );
 };
 
-const LandingPage: React.FC<{ onEnter: () => void, onDownloadSDK: (type: 'hpp' | 'cpp') => void }> = ({ onEnter, onDownloadSDK }) => {
+const LandingPage: React.FC<{ 
+  onEnter: () => void, 
+  onDownloadSDK: (type: 'hpp' | 'cpp') => void,
+  industry: IndustryProfile,
+  onSelectIndustry: (industry: IndustryProfile) => void
+}> = ({ onEnter, onDownloadSDK, industry, onSelectIndustry }) => {
   const [activeTab, setActiveTab] = useState<'mission' | 'integration' | 'sdk'>('mission');
   const [showPaper, setShowPaper] = useState(false);
 
@@ -120,8 +125,8 @@ const LandingPage: React.FC<{ onEnter: () => void, onDownloadSDK: (type: 'hpp' |
     <div className="min-h-screen bg-[#020202] flex flex-col items-center justify-center p-6 mono">
       <PaperModal isOpen={showPaper} onClose={() => setShowPaper(false)} />
       
-      <div className="max-w-5xl w-full border border-zinc-800 bg-zinc-900/10 p-8 md:p-12 relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-4 text-[9px] opacity-20 uppercase tracking-[0.3em]">Build_Auth_0xEE92</div>
+      <div className="max-w-7xl w-full border border-zinc-800 bg-zinc-900/10 p-8 md:p-12 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-4 text-[11px] opacity-20 uppercase tracking-[0.3em]">Build_Auth_0xEE92</div>
         
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-8">
@@ -129,20 +134,36 @@ const LandingPage: React.FC<{ onEnter: () => void, onDownloadSDK: (type: 'hpp' |
             <div className="w-16 h-16 border-2 border-[#00ff41] flex items-center justify-center mb-4 glow-core shadow-[0_0_20px_rgba(0,255,65,0.2)]">
               <div className="w-8 h-8 bg-[#00ff41] animate-pulse"></div>
             </div>
-            <h1 className="text-3xl font-black tracking-tighter text-white uppercase italic">Sentinel 5.0</h1>
-            <p className="text-[#00ff41] text-[10px] tracking-[0.5em] uppercase opacity-60">Physical Autonomy Reliability Layer</p>
+            <h1 className="text-4xl font-black tracking-tighter text-white uppercase italic">Sentinel 5.0</h1>
+            <p className="text-[#00ff41] text-xs tracking-[0.5em] uppercase opacity-60">Physical Autonomy Reliability Layer</p>
           </div>
           
-          <div className="flex gap-4 border border-zinc-800 p-1 bg-black">
-            {(['mission', 'integration', 'sdk'] as const).map(tab => (
-              <button 
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-6 py-2 text-[10px] font-bold uppercase transition-all ${activeTab === tab ? 'bg-[#00ff41] text-black' : 'text-zinc-500 hover:text-white'}`}
-              >
-                {tab}
-              </button>
-            ))}
+          <div className="flex flex-col items-end gap-4">
+            <div className="flex gap-4 border border-zinc-800 p-1 bg-black">
+              {(['mission', 'integration', 'sdk'] as const).map(tab => (
+                <button 
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-6 py-2 text-xs font-bold uppercase transition-all ${activeTab === tab ? 'bg-[#00ff41] text-black' : 'text-zinc-500 hover:text-white'}`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-col items-end">
+              <span className="text-[10px] text-zinc-500 uppercase mb-1 tracking-widest">Select_Industry_Profile</span>
+              <div className="flex gap-2">
+                {Object.values(IndustryProfile).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => onSelectIndustry(p)}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase border transition-all ${industry === p ? 'border-[#00ff41] text-[#00ff41] bg-[#00ff41]/5' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}
+                  >
+                    {p.replace(/ /g, '_')}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -152,22 +173,22 @@ const LandingPage: React.FC<{ onEnter: () => void, onDownloadSDK: (type: 'hpp' |
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="space-y-6">
                 <h2 className="text-xl font-bold text-white uppercase tracking-tight border-b border-zinc-800 pb-2">The Mission</h2>
-                <p className="text-xs text-zinc-400 leading-relaxed">
+                <p className="text-sm text-zinc-400 leading-relaxed">
                   Sentinel is a <span className="text-[#00ff41]">Universal Neural-Symbolic Governor</span>. 
                   It bridges the gap between high-level AI intent and low-level Newtonian physics, 
                   providing a deterministic safety layer for Drones, Rovers, and Industrial Robotics.
                 </p>
                 <div className="p-4 border border-zinc-800 bg-zinc-950/50 space-y-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 border border-zinc-700 flex items-center justify-center text-[10px] text-zinc-500">MCU</div>
+                    <div className="w-10 h-10 border border-zinc-700 flex items-center justify-center text-xs text-zinc-500">MCU</div>
                     <div className="flex-1 h-px bg-zinc-800 relative">
                        <div className="absolute inset-0 bg-[#00ff41] w-1/3 animate-[shimmer_2s_infinite]"></div>
                     </div>
-                    <div className="w-20 h-10 border border-[#00ff41]/40 flex items-center justify-center text-[10px] text-[#00ff41] font-bold">SENTINEL</div>
+                    <div className="w-20 h-10 border border-[#00ff41]/40 flex items-center justify-center text-xs text-[#00ff41] font-bold">SENTINEL</div>
                     <div className="flex-1 h-px bg-zinc-800"></div>
-                    <div className="w-10 h-10 border border-zinc-700 flex items-center justify-center text-[10px] text-zinc-500">PWM</div>
+                    <div className="w-10 h-10 border border-zinc-700 flex items-center justify-center text-xs text-zinc-500">PWM</div>
                   </div>
-                  <p className="text-[9px] text-center text-zinc-600 uppercase tracking-widest">Hardware Control Flow Diagram</p>
+                  <p className="text-[10px] text-center text-zinc-600 uppercase tracking-widest">Hardware Control Flow Diagram</p>
                 </div>
                 
                 <button 
@@ -180,13 +201,13 @@ const LandingPage: React.FC<{ onEnter: () => void, onDownloadSDK: (type: 'hpp' |
                     </svg>
                   </div>
                   <div>
-                    <div className="text-[10px] font-bold text-white uppercase group-hover:text-[#00ff41] transition-colors">Technical Manuscript</div>
-                    <div className="text-[9px] text-zinc-500 uppercase tracking-widest">Read v5.0 Whitepaper</div>
+                    <div className="text-xs font-bold text-white uppercase group-hover:text-[#00ff41] transition-colors">Technical Manuscript</div>
+                    <div className="text-[10px] text-zinc-500 uppercase tracking-widest">Read v5.0 Whitepaper</div>
                   </div>
                 </button>
               </div>
               <div className="space-y-4">
-                <h3 className="text-[10px] font-bold text-zinc-500 uppercase">Operational Guarantees:</h3>
+                <h3 className="text-xs font-bold text-zinc-500 uppercase">Operational Guarantees:</h3>
                 {[
                   "L0: Context-Sensitive δ-Refinement (Topology-Aware)",
                   "L0.5: Mission Phase Manager (Dynamic Pre-conditioning)",
@@ -200,7 +221,7 @@ const LandingPage: React.FC<{ onEnter: () => void, onDownloadSDK: (type: 'hpp' |
                 ].map((item, i) => (
                    <div key={i} className="flex gap-3 items-start border-l border-zinc-800 pl-4 py-1">
                       <div className="w-1.5 h-1.5 bg-[#00ff41] mt-1"></div>
-                      <span className="text-[11px] text-zinc-400">{item}</span>
+                      <span className="text-xs text-zinc-400">{item}</span>
                    </div>
                  ))}
               </div>
@@ -211,19 +232,19 @@ const LandingPage: React.FC<{ onEnter: () => void, onDownloadSDK: (type: 'hpp' |
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="md:col-span-5 space-y-6">
                 <h2 className="text-xl font-bold text-white uppercase tracking-tight border-b border-zinc-800 pb-2">Universal Integration</h2>
-                <p className="text-xs text-zinc-400">Sentinel acts as a <span className="text-[#00ff41]">Deterministic Firewall</span> between high-level AI intents and physical motors. It supports any topology via a unified state-space interface, now including <span className="text-white">eVTOL</span> and <span className="text-white">Rocket</span> flight computers.</p>
+                <p className="text-sm text-zinc-400">Sentinel acts as a <span className="text-[#00ff41]">Deterministic Firewall</span> between high-level AI intents and physical motors. It supports any topology via a unified state-space interface, now including <span className="text-white">eVTOL</span> and <span className="text-white">Rocket</span> flight computers.</p>
                 <div className="space-y-4">
                   <div className="bg-black border border-zinc-800 p-4">
-                    <span className="text-[9px] text-zinc-600 block mb-2 uppercase tracking-widest">Neural Bridge Input</span>
-                    <ul className="text-[10px] space-y-2 text-zinc-400">
+                    <span className="text-[10px] text-zinc-600 block mb-2 uppercase tracking-widest">Neural Bridge Input</span>
+                    <ul className="text-xs space-y-2 text-zinc-400">
                       <li>• <code className="text-[#00ff41]">Intent_Type</code>: MOVE_TO, STABILIZE, etc.</li>
                       <li>• <code className="text-[#00ff41]">Priority</code>: Deterministic Scheduling</li>
                       <li>• <code className="text-[#00ff41]">Target</code>: Topology-Specific Goal</li>
                     </ul>
                   </div>
                   <div className="bg-zinc-900/40 border border-[#00ff41]/20 p-4">
-                    <span className="text-[9px] text-[#00ff41] block mb-2 uppercase tracking-widest">Forensic Output</span>
-                    <ul className="text-[10px] space-y-2 text-zinc-300 font-bold">
+                    <span className="text-[10px] text-[#00ff41] block mb-2 uppercase tracking-widest">Forensic Output</span>
+                    <ul className="text-xs space-y-2 text-zinc-300 font-bold">
                       <li>• <code className="text-white">Safe_Control</code>: Interval-Verified Torque</li>
                       <li>• <code className="text-rose-400">τ_offset</code>: PTP-Synchronized Timestamp</li>
                       <li>• <code className="text-amber-400">Quorum_Proof</code>: Byzantine Consensus Acks</li>
@@ -240,28 +261,28 @@ const LandingPage: React.FC<{ onEnter: () => void, onDownloadSDK: (type: 'hpp' |
           {activeTab === 'sdk' && (
             <div className="flex flex-col items-center justify-center space-y-8 text-center animate-in fade-in zoom-in-95 duration-500">
               <div className="space-y-2">
-                <h2 className="text-2xl font-black text-white uppercase">Universal Governor SDK</h2>
-                <p className="text-xs text-zinc-500 uppercase tracking-widest">v5.0-Certified // Aerospace & Space-Grade Modules Included</p>
+                <h2 className="text-3xl font-black text-white uppercase">Universal Governor SDK</h2>
+                <p className="text-sm text-zinc-500 uppercase tracking-widest">v5.0-Certified // Aerospace & Space-Grade Modules Included</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-xl">
                 <button 
                   onClick={() => onDownloadSDK('hpp')}
                   className="flex flex-col items-center p-6 border border-[#00ff41]/40 bg-zinc-900/20 hover:bg-[#00ff41]/10 transition-all group"
                 >
-                  <div className="text-[#00ff41] font-black text-xl mb-1">GOVERNOR</div>
-                  <div className="text-[9px] text-zinc-500 uppercase">SentinelGovernor.hpp</div>
+                  <div className="text-[#00ff41] font-black text-2xl mb-1">GOVERNOR</div>
+                  <div className="text-xs text-zinc-500 uppercase">SentinelGovernor.hpp</div>
                 </button>
                 <button 
                   onClick={() => onDownloadSDK('cpp')}
                   className="flex flex-col items-center p-6 border border-[#00ff41]/40 bg-zinc-900/20 hover:bg-[#00ff41]/10 transition-all group"
                 >
-                  <div className="text-[#00ff41] font-black text-xl mb-1">AEROSPACE</div>
-                  <div className="text-[9px] text-zinc-500 uppercase">FTS_Propellant_Observer.cpp</div>
+                  <div className="text-[#00ff41] font-black text-2xl mb-1">AEROSPACE</div>
+                  <div className="text-xs text-zinc-500 uppercase">FTS_Propellant_Observer.cpp</div>
                 </button>
               </div>
               <div className="p-4 border border-zinc-800 bg-zinc-950 max-w-lg text-left">
-                <h4 className="text-[10px] text-white font-bold uppercase mb-2">Build Requirements</h4>
-                <ul className="text-[10px] text-zinc-500 space-y-1">
+                <h4 className="text-xs text-white font-bold uppercase mb-2">Build Requirements</h4>
+                <ul className="text-xs text-zinc-500 space-y-1">
                    <li>• C++17 Standard (Heap-Free, Real-Time)</li>
                    <li>• PTP v2.1 Support (for L7 Sync)</li>
                    <li>• DO-178C DAL-A Traceability Metadata</li>
@@ -276,7 +297,7 @@ const LandingPage: React.FC<{ onEnter: () => void, onDownloadSDK: (type: 'hpp' |
         <div className="mt-12 pt-8 border-t border-zinc-800 flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="flex items-center gap-4">
              <div className="w-2 h-2 bg-[#00ff41] rounded-full animate-ping"></div>
-             <span className="text-[9px] text-zinc-500 uppercase tracking-[0.2em]">Simulation_Engine_Ready</span>
+             <span className="text-[10px] text-zinc-500 uppercase tracking-[0.2em]">Simulation_Engine_Ready</span>
           </div>
           <button 
             onClick={onEnter}
@@ -366,28 +387,28 @@ const NeuralCommandCenter: React.FC<{
   };
 
   return (
-    <div className="border border-[#00ff41]/30 bg-zinc-900/40 p-3 flex flex-col h-64 shrink-0">
+    <div className="border border-[#00ff41]/30 bg-zinc-900/40 p-3 flex flex-col h-72 shrink-0">
       <div className="flex items-center justify-between mb-2 border-b border-zinc-800 pb-1">
-        <h2 className="font-black uppercase text-[10px] flex items-center gap-2">
+        <h2 className="font-black uppercase text-xs flex items-center gap-2">
           <div className="w-2 h-2 bg-[#00ff41] animate-pulse"></div>
           L0: Neural_Command_Bridge
         </h2>
         <div className="flex items-center gap-3">
           <div className="flex flex-col items-end">
-            <span className="text-[7px] opacity-40 uppercase leading-none">Context_δ</span>
-            <span className="text-[9px] font-mono text-[#00ff41]">{topologyDelta.toFixed(2)}</span>
+            <span className="text-[8px] opacity-40 uppercase leading-none">Context_δ</span>
+            <span className="text-xs font-mono text-[#00ff41]">{topologyDelta.toFixed(2)}</span>
           </div>
-          <span className="text-[8px] opacity-40 uppercase tracking-widest">Gemini_Flash_v3</span>
+          <span className="text-[10px] opacity-40 uppercase tracking-widest">Gemini_Flash_v3</span>
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto space-y-2 mb-2 custom-scrollbar pr-1 text-[9px]">
+      <div className="flex-1 overflow-y-auto space-y-2 mb-2 custom-scrollbar pr-1 text-xs">
         {history.length === 0 && (
           <div className="text-zinc-600 italic">Awaiting neural input... Try "Move to position 20" or "Stabilize system".</div>
         )}
         {history.map((msg, i) => (
           <div key={i} className={`p-1.5 border ${msg.role === 'user' ? 'border-zinc-800 bg-black/30' : 'border-[#00ff41]/20 bg-[#00ff41]/5 text-[#00ff41]'}`}>
-            <span className="opacity-40 uppercase mr-2">{msg.role}:</span>
+            <span className="opacity-40 uppercase mr-2 text-[10px]">{msg.role}:</span>
             {msg.text}
           </div>
         ))}
@@ -399,7 +420,7 @@ const NeuralCommandCenter: React.FC<{
           value={input}
           onChange={e => setInput(e.target.value)}
           placeholder="Enter command..."
-          className="w-full bg-black border border-zinc-800 p-2 pr-10 text-[9px] focus:border-[#00ff41] outline-none transition-colors"
+          className="w-full bg-black border border-zinc-800 p-2 pr-10 text-xs focus:border-[#00ff41] outline-none transition-colors"
         />
         <button 
           type="submit"
@@ -418,6 +439,7 @@ const NeuralCommandCenter: React.FC<{
 const App: React.FC = () => {
   const [view, setView] = useState<'onboarding' | 'dashboard'>('onboarding');
   const [topology, setTopology] = useState<RobotTopology>(RobotTopology.LINEAR_ACTUATOR);
+  const [industry, setIndustry] = useState<IndustryProfile>(IndustryProfile.GENERAL_ROBOTICS);
   const sentinelRef = useRef<SentinelRuntime>(new SentinelRuntime());
   const [telemetry, setTelemetry] = useState<any[]>([]);
   const [health, setHealth] = useState<RobotHealth | null>(null);
@@ -559,6 +581,16 @@ const App: React.FC = () => {
 
   const handleTopologyChange = (newTopology: RobotTopology) => {
     setTopology(newTopology);
+    
+    // Context-Aware Industry Auto-Switch
+    if (newTopology === RobotTopology.ROCKET) {
+      setIndustry(IndustryProfile.AEROSPACE_LAUNCH);
+    } else if (newTopology === RobotTopology.EVTOL || newTopology === RobotTopology.QUADCOPTER) {
+      setIndustry(IndustryProfile.URBAN_AIR_MOBILITY);
+    } else if (newTopology === RobotTopology.ROVER) {
+      setIndustry(IndustryProfile.FLEET_LOGISTICS);
+    }
+
     sentinelRef.current.setTopology(newTopology);
     simStateRef.current = {
       position: [0, 0, 0],
@@ -627,7 +659,14 @@ const App: React.FC = () => {
   };
 
   if (view === 'onboarding') {
-    return <LandingPage onEnter={handleEnter} onDownloadSDK={handleDownloadSDK} />;
+    return (
+      <LandingPage 
+        onEnter={handleEnter} 
+        onDownloadSDK={handleDownloadSDK} 
+        industry={industry}
+        onSelectIndustry={setIndustry}
+      />
+    );
   }
 
   if (isBooting) {
@@ -644,20 +683,20 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="h-screen bg-black text-[#00ff41] p-3 mono text-[11px] selection:bg-[#00ff41] selection:text-black overflow-hidden flex flex-col">
-      <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col gap-3 animate-in fade-in duration-700 overflow-hidden">
+    <div className="h-screen bg-black text-[#00ff41] p-3 mono text-sm selection:bg-[#00ff41] selection:text-black overflow-hidden flex flex-col">
+      <div className="max-w-[95rem] mx-auto w-full flex-1 flex flex-col gap-3 animate-in fade-in duration-700 overflow-hidden">
         
         {/* KERNEL IDENTITY HEADER */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border border-[#00ff41]/30 p-2 bg-zinc-900/40 gap-2 shrink-0">
            <div className="flex gap-6 items-center">
              <button onClick={() => setView('onboarding')} className="hover:opacity-60 transition-opacity">
-               <h1 className="text-lg font-black italic tracking-tighter text-white uppercase leading-none">Sentinel_v5</h1>
+               <h1 className="text-xl font-black italic tracking-tighter text-white uppercase leading-none">Sentinel_v5</h1>
              </button>
              <div className="hidden md:flex gap-3 px-4 border-l border-zinc-800">
                <select 
                  value={topology}
                  onChange={(e) => handleTopologyChange(e.target.value as RobotTopology)}
-                 className="bg-black border border-zinc-800 text-[#00ff41] text-[9px] px-2 py-0.5 outline-none focus:border-[#00ff41] transition-colors uppercase font-bold"
+                 className="bg-black border border-zinc-800 text-[#00ff41] text-xs px-2 py-0.5 outline-none focus:border-[#00ff41] transition-colors uppercase font-bold"
                >
                  {Object.values(RobotTopology).map(t => (
                    <option key={t} value={t}>{t}</option>
@@ -671,14 +710,26 @@ const App: React.FC = () => {
                  <span className="text-amber-400 font-bold">FAST_LOOP: {health?.innerLoopWCET.toFixed(1)}μs</span>
                )}
                <div className="flex items-center gap-2 px-4 border-l border-zinc-800">
-                 <span className="text-[7px] text-zinc-500 uppercase">Platform</span>
+                 <span className="text-[8px] text-zinc-500 uppercase">Platform</span>
                  <select 
                    value={platform}
                    onChange={(e) => setPlatform(e.target.value as PlatformType)}
-                   className="bg-black border border-zinc-800 text-white text-[9px] px-2 py-0.5 outline-none focus:border-[#00ff41] transition-colors uppercase font-bold"
+                   className="bg-black border border-zinc-800 text-white text-xs px-2 py-0.5 outline-none focus:border-[#00ff41] transition-colors uppercase font-bold"
                  >
                    {Object.values(PlatformType).map(p => (
                      <option key={p} value={p}>{p}</option>
+                   ))}
+                 </select>
+               </div>
+               <div className="flex items-center gap-2 px-4 border-l border-zinc-800">
+                 <span className="text-[8px] text-zinc-500 uppercase">Profile</span>
+                 <select 
+                   value={industry}
+                   onChange={(e) => setIndustry(e.target.value as IndustryProfile)}
+                   className="bg-black border border-zinc-800 text-amber-400 text-xs px-2 py-0.5 outline-none focus:border-[#00ff41] transition-colors uppercase font-bold"
+                 >
+                   {Object.values(IndustryProfile).map(i => (
+                     <option key={i} value={i}>{i}</option>
                    ))}
                  </select>
                </div>
@@ -687,13 +738,13 @@ const App: React.FC = () => {
            <div className="flex items-center gap-4">
              {/* Execution Mode Selector */}
              <div className="flex items-center gap-2 border border-zinc-800 bg-black/40 p-1 px-2">
-               <span className="text-[7px] text-zinc-500 uppercase">Execution_Mode</span>
+               <span className="text-[8px] text-zinc-500 uppercase">Execution_Mode</span>
                <div className="flex gap-1">
                  {(['1kHz', '10kHz'] as const).map(mode => (
                    <button
                      key={mode}
                      onClick={() => setExecutionMode(mode)}
-                     className={`text-[8px] px-2 py-0.5 font-bold transition-colors ${executionMode === mode ? 'bg-[#00ff41] text-black' : 'text-zinc-500 hover:text-white'}`}
+                     className={`text-xs px-2 py-0.5 font-bold transition-colors ${executionMode === mode ? 'bg-[#00ff41] text-black' : 'text-zinc-500 hover:text-white'}`}
                    >
                      {mode}
                    </button>
@@ -702,13 +753,13 @@ const App: React.FC = () => {
              </div>
              <button 
                 onClick={() => handleDownloadSDK('cpp')}
-                className="px-3 py-1 border border-[#00ff41]/30 hover:bg-[#00ff41] hover:text-black transition-all text-[8px] font-bold uppercase tracking-widest"
+                className="px-3 py-1 border border-[#00ff41]/30 hover:bg-[#00ff41] hover:text-black transition-all text-xs font-bold uppercase tracking-widest"
              >
                 Extract_Source
              </button>
              <div className="text-right hidden sm:block">
-               <div className="text-[9px] opacity-60 leading-none">AUDIT_HASH</div>
-               <div className="font-bold text-white uppercase text-[10px]">0x{health?.integrityHash}</div>
+               <div className="text-[10px] opacity-60 leading-none">AUDIT_HASH</div>
+               <div className="font-bold text-white uppercase text-xs">0x{health?.integrityHash}</div>
              </div>
            </div>
         </div>
@@ -742,17 +793,19 @@ const App: React.FC = () => {
               {health && <ComplianceDashboard status={health.compliance} />}
             </div>
 
-            <div className="shrink-0 h-64">
-              {health && <NasaCompliancePanel status={health.nasaCompliance} />}
-            </div>
+            {industry === IndustryProfile.AEROSPACE_LAUNCH && health && (
+              <div className="shrink-0 h-64">
+                <NasaCompliancePanel status={health.nasaCompliance} />
+              </div>
+            )}
 
-            {health?.evtolGovernance && (
+            {industry === IndustryProfile.URBAN_AIR_MOBILITY && health?.evtolGovernance && (
               <div className="shrink-0 h-64">
                 <RotorGovernancePanel governance={health.evtolGovernance} />
               </div>
             )}
 
-            {health?.rocketGovernance && (
+            {industry === IndustryProfile.AEROSPACE_LAUNCH && health?.rocketGovernance && (
               <div className="shrink-0 h-64">
                 <FtsGovernancePanel 
                   governance={health.rocketGovernance} 
@@ -762,16 +815,16 @@ const App: React.FC = () => {
             )}
             
             <div className="border border-[#00ff41]/20 p-4 bg-zinc-900/20 shrink-0">
-              <h2 className="font-black uppercase mb-3 border-b border-zinc-800 pb-1 text-[9px]">L1: Intent Coherence</h2>
+              <h2 className="font-black uppercase mb-3 border-b border-zinc-800 pb-1 text-sm">L1: Intent Coherence</h2>
               {health && (
                 <div className="space-y-2">
-                  <div className="flex justify-between text-[8px]">
+                  <div className="flex justify-between text-xs">
                     <span className="opacity-40 uppercase">Coherence_Status</span>
                     <span className={health.intentCoherence.isCoherent ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
                       {health.intentCoherence.isCoherent ? 'NOMINAL' : 'SUSPICIOUS'}
                     </span>
                   </div>
-                  <div className="flex justify-between text-[8px]">
+                  <div className="flex justify-between text-xs">
                     <span className="opacity-40 uppercase">Contradiction_Score</span>
                     <span className="text-white">{(health.intentCoherence.contradictionScore * 100).toFixed(1)}%</span>
                   </div>
@@ -785,41 +838,41 @@ const App: React.FC = () => {
               )}
             </div>
 
-            <div className="h-48 shrink-0">
-              {health && (
-                <FleetConsensusMap 
-                  state={health.consensusState} 
-                  ownPosition={simStateRef.current.position} 
-                />
-              )}
-            </div>
+            {industry === IndustryProfile.FLEET_LOGISTICS && health && (
+              <>
+                <div className="h-48 shrink-0">
+                  <FleetConsensusMap 
+                    state={health.consensusState} 
+                    ownPosition={simStateRef.current.position} 
+                  />
+                </div>
 
-            <div className="h-40 shrink-0">
-              {health && (
-                <PtpSyncStatus status={health.ptpStatus} />
-              )}
-            </div>
+                <div className="h-40 shrink-0">
+                  <PtpSyncStatus status={health.ptpStatus} />
+                </div>
+              </>
+            )}
 
-            <div className="h-40 shrink-0">
-              {health && (
+            {(industry === IndustryProfile.AEROSPACE_LAUNCH || industry === IndustryProfile.URBAN_AIR_MOBILITY) && health && (
+              <div className="h-40 shrink-0">
                 <MissionPhaseManager state={health.missionPhase} />
-              )}
-            </div>
+              </div>
+            )}
 
             <div className="border border-zinc-800 p-3 bg-black shrink-0">
               <div className="flex justify-between items-center mb-2">
-                <h3 className="uppercase opacity-40 text-[9px]">L5: Predictive Faults</h3>
+                <h3 className="uppercase opacity-40 text-xs">L5: Predictive Faults</h3>
                 {health && health.faultDiagnosis.isOOD && (
-                  <span className="text-[7px] bg-amber-900/30 text-amber-500 px-1 border border-amber-900 uppercase font-bold animate-pulse">OOD_Anomaly</span>
+                  <span className="text-[9px] bg-amber-900/30 text-amber-500 px-1 border border-amber-900 uppercase font-bold animate-pulse">OOD_Anomaly</span>
                 )}
               </div>
               {health && (
                 <div className="space-y-1.5">
-                  <div className="text-[9px] font-bold text-white uppercase">
+                  <div className="text-xs font-bold text-white uppercase">
                     {health.faultDiagnosis.classifiedFault || 'NO_FAULTS_DETECTED'}
                   </div>
                   {health.faultDiagnosis.classifiedFault && (
-                    <div className="text-[7px] text-zinc-500 uppercase">
+                    <div className="text-[9px] text-zinc-500 uppercase">
                       Match: {health.faultDiagnosis.signatureMatch} ({ (health.faultDiagnosis.confidence * 100).toFixed(0) }%)
                     </div>
                   )}
@@ -828,16 +881,16 @@ const App: React.FC = () => {
             </div>
 
             <div className="border border-[#00ff41]/20 p-3 bg-zinc-900/20 shrink-0">
-              <h2 className="font-black uppercase mb-3 border-b border-zinc-800 pb-1 text-[9px]">L4: Lyapunov Matrix (P)</h2>
+              <h2 className="font-black uppercase mb-3 border-b border-zinc-800 pb-1 text-xs">L4: Lyapunov Matrix (P)</h2>
               {health && (
                 <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-1 text-center border border-zinc-800 p-1.5 bg-black/50 text-[9px]">
+                  <div className="grid grid-cols-2 gap-1 text-center border border-zinc-800 p-1.5 bg-black/50 text-xs">
                     <div className="border border-zinc-800 p-0.5">{health.lyapunov.P[0][0].toFixed(3)}</div>
                     <div className="border border-zinc-800 p-0.5">{health.lyapunov.P[0][1].toFixed(3)}</div>
                     <div className="border border-zinc-800 p-0.5">{health.lyapunov.P[1][0].toFixed(3)}</div>
                     <div className="border border-zinc-800 p-0.5">{health.lyapunov.P[1][1].toFixed(3)}</div>
                   </div>
-                  <div className="flex justify-between items-center text-[8px]">
+                  <div className="flex justify-between items-center text-[10px]">
                     <span className="opacity-40 uppercase">State_Invariant</span>
                     <span className={health.lyapunov.isPositiveDefinite ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
                       {health.lyapunov.isPositiveDefinite ? 'POS_DEF' : 'DIVERGED'}
@@ -849,17 +902,17 @@ const App: React.FC = () => {
             </div>
 
             <div className="border border-zinc-800 p-3 bg-black shrink-0">
-              <h3 className="uppercase mb-2 opacity-40 text-[9px]">L5: Actuator Envelope</h3>
+              <h3 className="uppercase mb-2 opacity-40 text-xs">L5: Actuator Envelope</h3>
               {health && (
                 <div className="space-y-1.5">
                   <HealthMetric label="Torque_Util" value={health.actuators.torqueUtilization / 10} />
-                  <div className="flex justify-between text-[8px]">
+                  <div className="flex justify-between text-[10px]">
                     <span className="opacity-40 uppercase">Consensus</span>
                     <span className={health.consensus.divergence > 10 ? 'text-rose-500 font-bold' : 'text-emerald-500 font-bold'}>
                       {health.consensus.divergence > 10 ? 'DIVERGED' : 'SYNCED'}
                     </span>
                   </div>
-                  <div className="flex justify-between text-[7px]">
+                  <div className="flex justify-between text-[9px]">
                     <span className="opacity-40 uppercase">Thermal</span>
                     <span className={health.actuators.thermalEstimate > 60 ? 'text-rose-500 font-bold' : 'text-white'}>
                       {health.actuators.thermalEstimate.toFixed(1)}°C
@@ -870,7 +923,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="p-2 border border-zinc-800 bg-zinc-950/40 shrink-0">
-               <span className="opacity-40 uppercase block mb-1 text-[7px]">Simulator_Inject</span>
+               <span className="opacity-40 uppercase block mb-1 text-[9px]">Simulator_Inject</span>
                <input 
                  type="range" min="0.5" max="3" step="0.1" value={driftSim} 
                  onChange={e => setDriftSim(parseFloat(e.target.value))}

@@ -10,12 +10,12 @@ const RotorGovernancePanel: React.FC<RotorGovernancePanelProps> = ({ governance 
   return (
     <div className="border border-[#00ff41]/30 bg-zinc-900/40 p-3 flex flex-col h-full overflow-hidden">
       <div className="flex items-center justify-between mb-2 border-b border-zinc-800 pb-1">
-        <h2 className="font-black uppercase text-[10px] flex items-center gap-2">
-          <Fan size={12} className={governance.allocation.isDegraded ? "text-amber-500 animate-spin" : "text-[#00ff41]"} />
+        <h2 className="font-black uppercase text-xs flex items-center gap-2">
+          <Fan size={14} className={governance.allocation.isDegraded ? "text-amber-500 animate-spin" : "text-[#00ff41]"} />
           L5: eVTOL_Rotor_Governance
         </h2>
         <div className="flex items-center gap-1">
-          <span className={`text-[8px] uppercase font-bold ${governance.allocation.isDegraded ? "text-amber-500" : "text-[#00ff41]"}`}>
+          <span className={`text-[10px] uppercase font-bold ${governance.allocation.isDegraded ? "text-amber-500" : "text-[#00ff41]"}`}>
             {governance.allocation.isDegraded ? "DEGRADED_MODE" : "NOMINAL_FLIGHT"}
           </span>
         </div>
@@ -33,9 +33,9 @@ const RotorGovernancePanel: React.FC<RotorGovernancePanelProps> = ({ governance 
                 "bg-zinc-950/40 border-zinc-800"
               }`}
             >
-              <span className="text-[6px] text-zinc-500 font-mono">{rotor.id.split('_')[1]}</span>
-              <Activity size={10} className={rotor.status === 'FAILED' ? "text-rose-500" : rotor.status === 'DEGRADED' ? "text-amber-500" : "text-[#00ff41]"} />
-              <span className="text-[7px] font-bold mt-0.5">{(rotor.healthScore * 100).toFixed(0)}%</span>
+              <span className="text-[10px] text-zinc-500 font-mono">{rotor.id.split('_')[1]}</span>
+              <Activity size={12} className={rotor.status === 'FAILED' ? "text-rose-500" : rotor.status === 'DEGRADED' ? "text-amber-500" : "text-[#00ff41]"} />
+              <span className="text-[10px] font-bold mt-0.5">{(rotor.healthScore * 100).toFixed(0)}%</span>
             </div>
           ))}
         </div>
@@ -44,21 +44,21 @@ const RotorGovernancePanel: React.FC<RotorGovernancePanelProps> = ({ governance 
         <div className="bg-black/40 border border-zinc-800 p-2 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Zap size={12} className="text-blue-400" />
-              <span className="text-[8px] font-black uppercase text-white tracking-wider">Control_Allocation</span>
+              <Zap size={14} className="text-blue-400" />
+              <span className="text-[10px] font-black uppercase text-white tracking-wider">Control_Allocation</span>
             </div>
-            <span className="text-[7px] font-mono text-zinc-500">FLASH_STORAGE_ACTIVE</span>
+            <span className="text-[9px] font-mono text-zinc-500">FLASH_STORAGE_ACTIVE</span>
           </div>
           
           <div className="flex items-center justify-between p-1.5 bg-zinc-900/60 border border-zinc-800">
             <div className="flex flex-col">
-              <span className="text-[6px] text-zinc-500 uppercase">Active_Matrix</span>
-              <span className={`text-[9px] font-mono ${governance.allocation.isDegraded ? "text-amber-400" : "text-[#00ff41]"}`}>
+              <span className="text-[10px] text-zinc-500 uppercase">Active_Matrix</span>
+              <span className={`text-[11px] font-mono ${governance.allocation.isDegraded ? "text-amber-400" : "text-[#00ff41]"}`}>
                 {governance.allocation.activeMatrixId}
               </span>
             </div>
             {governance.allocation.redistributionActive && (
-              <span className="text-[7px] bg-amber-500/10 text-amber-500 px-1 border border-amber-500/20 uppercase font-bold animate-pulse">
+              <span className="text-[10px] bg-amber-500/10 text-amber-500 px-1 border border-amber-500/20 uppercase font-bold animate-pulse">
                 Redistributing
               </span>
             )}
@@ -69,19 +69,19 @@ const RotorGovernancePanel: React.FC<RotorGovernancePanelProps> = ({ governance 
         {governance.emergencyLandingActive && (
           <div className="p-2 border border-rose-500/30 bg-rose-500/5 space-y-2 animate-pulse">
             <div className="flex items-center gap-2">
-              <ShieldAlert size={14} className="text-rose-500" />
-              <span className="text-[9px] font-black uppercase text-rose-500 tracking-wider">L6: Emergency_Landing_Active</span>
+              <ShieldAlert size={16} className="text-rose-500" />
+              <span className="text-[11px] font-black uppercase text-rose-500 tracking-wider">L6: Emergency_Landing_Active</span>
             </div>
             
             <div className="flex items-center gap-2 p-1.5 bg-black/40 border border-rose-500/20">
-              <MapPin size={10} className="text-rose-400" />
+              <MapPin size={12} className="text-rose-400" />
               <div className="flex flex-col">
-                <span className="text-[6px] text-zinc-500 uppercase">Target_Safe_Zone</span>
-                <span className="text-[8px] text-white font-bold">{governance.nearestSafeZone}</span>
+                <span className="text-[10px] text-zinc-500 uppercase">Target_Safe_Zone</span>
+                <span className="text-xs text-white font-bold">{governance.nearestSafeZone}</span>
               </div>
             </div>
             
-            <p className="text-[7px] text-rose-400 leading-tight italic">
+            <p className="text-xs text-rose-400 leading-tight italic">
               Minimum-energy trajectory computed using degraded flight envelope. Dynamic allocation suspended.
             </p>
           </div>
@@ -89,10 +89,10 @@ const RotorGovernancePanel: React.FC<RotorGovernancePanelProps> = ({ governance 
 
         {!governance.emergencyLandingActive && (
           <div className="p-2 border border-zinc-800 bg-zinc-950/20 flex items-start gap-2">
-            <AlertTriangle size={12} className="text-zinc-600 shrink-0" />
+            <AlertTriangle size={14} className="text-zinc-600 shrink-0" />
             <div className="space-y-1">
-              <span className="text-[8px] font-bold uppercase text-zinc-500">Contingency_Ready</span>
-              <p className="text-[7px] text-zinc-600 leading-tight">
+              <span className="text-xs font-bold uppercase text-zinc-500">Contingency_Ready</span>
+              <p className="text-xs text-zinc-600 leading-tight">
                 Rotor failure matrices precomputed for all single/dual failure combinations. L4/L6 governance standby.
               </p>
             </div>
@@ -101,8 +101,8 @@ const RotorGovernancePanel: React.FC<RotorGovernancePanelProps> = ({ governance 
       </div>
 
       <div className="mt-2 pt-2 border-t border-zinc-800 flex justify-between items-center opacity-40">
-        <span className="text-[6px] uppercase">Envelope_Status</span>
-        <span className="text-[6px] font-mono">{governance.allocation.isDegraded ? "DEGRADED_ENVELOPE" : "FULL_ENVELOPE"}</span>
+        <span className="text-[10px] uppercase">Envelope_Status</span>
+        <span className="text-[10px] font-mono">{governance.allocation.isDegraded ? "DEGRADED_ENVELOPE" : "FULL_ENVELOPE"}</span>
       </div>
     </div>
   );

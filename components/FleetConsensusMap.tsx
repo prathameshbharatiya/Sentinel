@@ -13,14 +13,14 @@ const FleetConsensusMap: React.FC<FleetConsensusMapProps> = ({ state, ownPositio
   return (
     <div className="border border-[#00ff41]/20 bg-zinc-900/20 p-3 flex flex-col h-full">
       <div className="flex items-center justify-between mb-2 border-b border-zinc-800 pb-1">
-        <h2 className="font-black uppercase text-[9px] flex items-center gap-2">
+        <h2 className="font-black uppercase text-xs flex items-center gap-2">
           <div className="w-2 h-2 bg-[#00ff41] animate-pulse"></div>
           L3: Fleet_Consensus_Map
         </h2>
         <div className="flex gap-2">
-          <span className="text-[7px] text-emerald-400 uppercase">Trusted: {state.peers.filter(p => p.status === 'TRUSTED').length}</span>
-          <span className="text-[7px] text-rose-400 uppercase">Byzantine: {state.peers.filter(p => p.status !== 'TRUSTED').length}</span>
-          <span className={`text-[7px] font-bold uppercase ${state.quorumReached ? 'text-emerald-400' : 'text-rose-400'}`}>
+          <span className="text-[9px] text-emerald-400 uppercase">Trusted: {state.peers.filter(p => p.status === 'TRUSTED').length}</span>
+          <span className="text-[9px] text-rose-400 uppercase">Byzantine: {state.peers.filter(p => p.status !== 'TRUSTED').length}</span>
+          <span className={`text-[9px] font-bold uppercase ${state.quorumReached ? 'text-emerald-400' : 'text-rose-400'}`}>
             Quorum: {state.ackCount}/{state.requiredQuorum}
           </span>
         </div>
@@ -46,7 +46,7 @@ const FleetConsensusMap: React.FC<FleetConsensusMapProps> = ({ state, ownPositio
             x={mapCoord(ownPosition[0]) + 6} 
             y={mapCoord(ownPosition[1]) + 3} 
             fill="#00ff41" 
-            fontSize="6" 
+            fontSize="8" 
             className="font-bold uppercase"
           >
             SELF
@@ -81,7 +81,7 @@ const FleetConsensusMap: React.FC<FleetConsensusMapProps> = ({ state, ownPositio
                   x={mapCoord(peer.position[0]) + 5} 
                   y={mapCoord(peer.position[1]) + 2} 
                   fill={color} 
-                  fontSize="5" 
+                  fontSize="7" 
                   className="font-mono uppercase"
                 >
                   {peer.id}
@@ -94,7 +94,7 @@ const FleetConsensusMap: React.FC<FleetConsensusMapProps> = ({ state, ownPositio
         {/* Conflict Overlay */}
         {state.conflictDetected && (
           <div className="absolute inset-0 bg-rose-500/10 flex items-center justify-center pointer-events-none">
-            <div className="border border-rose-500 bg-black px-2 py-1 text-[8px] text-rose-500 font-bold animate-bounce">
+            <div className="border border-rose-500 bg-black px-2 py-1 text-[10px] text-rose-500 font-bold animate-bounce">
               CONFLICT_DETECTED
             </div>
           </div>
@@ -103,7 +103,7 @@ const FleetConsensusMap: React.FC<FleetConsensusMapProps> = ({ state, ownPositio
         {/* Quorum Overlay */}
         {!state.quorumReached && state.commitmentTimeout && (
           <div className="absolute inset-0 bg-rose-500/20 flex items-center justify-center pointer-events-none">
-            <div className="border border-rose-500 bg-black px-2 py-1 text-[8px] text-rose-500 font-bold">
+            <div className="border border-rose-500 bg-black px-2 py-1 text-[10px] text-rose-500 font-bold">
               QUORUM_TIMEOUT: HOLD_POSITION
             </div>
           </div>
@@ -111,14 +111,14 @@ const FleetConsensusMap: React.FC<FleetConsensusMapProps> = ({ state, ownPositio
       </div>
 
       <div className="mt-2 space-y-1">
-        <div className="flex justify-between text-[8px]">
+        <div className="flex justify-between text-[10px]">
           <span className="opacity-40 uppercase">Global_Consensus</span>
           <span className={state.byzantineStatus === 'TRUSTED' ? 'text-emerald-400' : 'text-rose-400'}>
             {state.byzantineStatus}
           </span>
         </div>
         {state.resolvedIntent && (
-          <div className="text-[7px] text-zinc-500 uppercase truncate">
+          <div className="text-[9px] text-zinc-500 uppercase truncate">
             Resolved: {state.resolvedIntent.type} {'->'} {state.resolvedIntent.target}
           </div>
         )}
