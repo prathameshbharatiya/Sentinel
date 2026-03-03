@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { ShieldAlert } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { SentinelRuntime } from './services/SentinelRuntime';
 import { RobotState, RobotHealth, HazardLevel, RuntimeMode, IntentType, RobotIntent, RobotTopology, PlatformType, IndustryProfile } from './types';
@@ -17,6 +18,13 @@ import NasaCompliancePanel from './components/NasaCompliancePanel';
 import RotorGovernancePanel from './components/RotorGovernancePanel';
 import FtsGovernancePanel from './components/FtsGovernancePanel';
 import IntegrationTerminal from './components/IntegrationTerminal';
+import PhysicalManifestUploader from './components/PhysicalManifestUploader';
+import ZeroCodeWizard from './components/ZeroCodeWizard';
+import HardwareBridge from './components/HardwareBridge';
+import JointGovernancePanel from './components/JointGovernancePanel';
+import TractionGovernancePanel from './components/TractionGovernancePanel';
+import RocketEnginePanel from './components/RocketEnginePanel';
+import { Terminal, ShieldCheck, Cpu, Loader2 } from 'lucide-react';
 
 const PaperContent = `
 SENTINEL V5.0: A UNIVERSAL NEURAL-SYMBOLIC GOVERNOR FOR ZERO-TRUST ROBOTIC AUTONOMY
@@ -118,7 +126,7 @@ const LandingPage: React.FC<{
   industry: IndustryProfile,
   onSelectIndustry: (industry: IndustryProfile) => void
 }> = ({ onEnter, onDownloadSDK, industry, onSelectIndustry }) => {
-  const [activeTab, setActiveTab] = useState<'mission' | 'integration' | 'sdk'>('mission');
+  const [activeTab, setActiveTab] = useState<'mission' | 'integration' | 'sdk' | 'configuration'>('mission');
   const [showPaper, setShowPaper] = useState(false);
 
   return (
@@ -140,7 +148,7 @@ const LandingPage: React.FC<{
           
           <div className="flex flex-col items-end gap-4">
             <div className="flex gap-4 border border-zinc-800 p-1 bg-black">
-              {(['mission', 'integration', 'sdk'] as const).map(tab => (
+              {(['mission', 'integration', 'configuration', 'sdk'] as const).map(tab => (
                 <button 
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -174,19 +182,24 @@ const LandingPage: React.FC<{
               <div className="space-y-6">
                 <h2 className="text-xl font-bold text-white uppercase tracking-tight border-b border-zinc-800 pb-2">The Mission</h2>
                 <p className="text-sm text-zinc-400 leading-relaxed">
-                  Sentinel is a <span className="text-[#00ff41]">Universal Neural-Symbolic Governor</span>. 
-                  It bridges the gap between high-level AI intent and low-level Newtonian physics, 
-                  providing a deterministic safety layer for Drones, Rovers, and Industrial Robotics.
+                  {industry === IndustryProfile.AEROSPACE_LAUNCH && "Sentinel provides a deterministic safety layer for launch vehicles and orbital assets, enforcing NASA-STD-8739.8 software safety analysis at the edge."}
+                  {industry === IndustryProfile.URBAN_AIR_MOBILITY && "Sentinel secures eVTOL and commercial drone fleets with DO-178C DAL-A compliant governance, managing rotor failures and emergency landing trajectories."}
+                  {industry === IndustryProfile.FLEET_LOGISTICS && "Sentinel coordinates autonomous fleets with Byzantine-resilient consensus and nanosecond-accurate PTP synchronization for warehouse and urban logistics."}
+                  {industry === IndustryProfile.GENERAL_ROBOTICS && "Sentinel is a Universal Neural-Symbolic Governor. It bridges the gap between high-level AI intent and low-level Newtonian physics for any robotic topology."}
                 </p>
                 <div className="p-4 border border-zinc-800 bg-zinc-950/50 space-y-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 border border-zinc-700 flex items-center justify-center text-xs text-zinc-500">MCU</div>
+                    <div className="w-10 h-10 border border-zinc-700 flex items-center justify-center text-xs text-zinc-500">
+                      {industry === IndustryProfile.AEROSPACE_LAUNCH ? "F_COMP" : "MCU"}
+                    </div>
                     <div className="flex-1 h-px bg-zinc-800 relative">
                        <div className="absolute inset-0 bg-[#00ff41] w-1/3 animate-[shimmer_2s_infinite]"></div>
                     </div>
                     <div className="w-20 h-10 border border-[#00ff41]/40 flex items-center justify-center text-xs text-[#00ff41] font-bold">SENTINEL</div>
                     <div className="flex-1 h-px bg-zinc-800"></div>
-                    <div className="w-10 h-10 border border-zinc-700 flex items-center justify-center text-xs text-zinc-500">PWM</div>
+                    <div className="w-10 h-10 border border-zinc-700 flex items-center justify-center text-xs text-zinc-500">
+                      {industry === IndustryProfile.AEROSPACE_LAUNCH ? "VALVE" : "PWM"}
+                    </div>
                   </div>
                   <p className="text-[10px] text-center text-zinc-600 uppercase tracking-widest">Hardware Control Flow Diagram</p>
                 </div>
@@ -208,17 +221,35 @@ const LandingPage: React.FC<{
               </div>
               <div className="space-y-4">
                 <h3 className="text-xs font-bold text-zinc-500 uppercase">Operational Guarantees:</h3>
-                {[
+                {(industry === IndustryProfile.AEROSPACE_LAUNCH ? [
+                  "L4: Rocket FTS & Prospective Stability Certification",
+                  "L2: Propellant Mass Flow Observer (dm/dt)",
+                  "L8: NASA-STD-8739.8 Certified Proofs",
+                  "L0.5: Mission Phase Manager (Staging Logic)",
+                  "L7: Rad-Hard WCET < 15μs Timing Guarantees",
+                  "L10: SSA Hazard Control Verification"
+                ] : industry === IndustryProfile.URBAN_AIR_MOBILITY ? [
+                  "L6: eVTOL Rotor Failure Governance & Emergency Landing",
+                  "L9: DO-178C DAL-A Traceability Metadata",
+                  "L4: Admissible Control Set Convex Projection",
+                  "L5: Predictive Rotor Health Monitoring",
+                  "L0.5: Transition Window Pre-conditioning",
+                  "L1: Semantic Intent Coherence Monitor"
+                ] : industry === IndustryProfile.FLEET_LOGISTICS ? [
+                  "L3: Byzantine-Resilient Quorum Commitment",
+                  "L7: PTP-Synchronized Forensic Audit Chain",
+                  "L1: Multi-Agent Intent Reconciliation",
+                  "L2: Recursive Least Squares Digital Twin",
+                  "L5: OOD Anomaly Detection for Fleet Nodes",
+                  "L4: Lyapunov Stability for Swarm Dynamics"
+                ] : [
                   "L0: Context-Sensitive δ-Refinement (Topology-Aware)",
                   "L0.5: Mission Phase Manager (Dynamic Pre-conditioning)",
                   "L1-L2: Semantic Coherence & RLS Digital Twin",
                   "L3: Byzantine-Resilient Quorum Commitment",
-                  "L4: Rocket FTS & Prospective Stability Certification",
-                  "L6: eVTOL Rotor Failure Governance & Emergency Landing",
-                  "L7: PTP-Synchronized Forensic Audit Chain",
-                  "L8: Formal Verification (dReal/Coq Certified)",
-                  "Compliance: DO-178C DAL-A & NASA-STD-8739.8"
-                ].map((item, i) => (
+                  "L4: Lyapunov Stability Kernel (10kHz)",
+                  "L8: Formal Verification (dReal/Coq Certified)"
+                ]).map((item, i) => (
                    <div key={i} className="flex gap-3 items-start border-l border-zinc-800 pl-4 py-1">
                       <div className="w-1.5 h-1.5 bg-[#00ff41] mt-1"></div>
                       <span className="text-xs text-zinc-400">{item}</span>
@@ -231,15 +262,36 @@ const LandingPage: React.FC<{
           {activeTab === 'integration' && (
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="md:col-span-5 space-y-6">
-                <h2 className="text-xl font-bold text-white uppercase tracking-tight border-b border-zinc-800 pb-2">Universal Integration</h2>
-                <p className="text-sm text-zinc-400">Sentinel acts as a <span className="text-[#00ff41]">Deterministic Firewall</span> between high-level AI intents and physical motors. It supports any topology via a unified state-space interface, now including <span className="text-white">eVTOL</span> and <span className="text-white">Rocket</span> flight computers.</p>
+                <h2 className="text-xl font-bold text-white uppercase tracking-tight border-b border-zinc-800 pb-2">
+                  {industry === IndustryProfile.AEROSPACE_LAUNCH ? "Aerospace Integration" : 
+                   industry === IndustryProfile.URBAN_AIR_MOBILITY ? "UAM Integration" :
+                   industry === IndustryProfile.FLEET_LOGISTICS ? "Fleet Integration" : "Universal Integration"}
+                </h2>
+                <p className="text-sm text-zinc-400">
+                  {industry === IndustryProfile.AEROSPACE_LAUNCH && "Sentinel integrates with F' (F-Prime) and custom flight stacks via the Shadow Driver SDK, providing real-time FTS recoverability analysis."}
+                  {industry === IndustryProfile.URBAN_AIR_MOBILITY && "Sentinel provides a DO-178C compliant ROS2 Safety Node for eVTOL flight controllers, managing degraded flight envelopes automatically."}
+                  {industry === IndustryProfile.FLEET_LOGISTICS && "Sentinel coordinates multi-agent fleets via a Byzantine-resilient DDS bridge, ensuring quorum-based movement commitment."}
+                  {industry === IndustryProfile.GENERAL_ROBOTICS && "Sentinel acts as a Deterministic Firewall between high-level AI intents and physical motors, supporting any topology via a unified state-space interface."}
+                </p>
                 <div className="space-y-4">
                   <div className="bg-black border border-zinc-800 p-4">
-                    <span className="text-[10px] text-zinc-600 block mb-2 uppercase tracking-widest">Neural Bridge Input</span>
+                    <span className="text-[10px] text-zinc-600 block mb-2 uppercase tracking-widest">
+                      {industry === IndustryProfile.AEROSPACE_LAUNCH ? "Telemetry Link" : "Neural Bridge Input"}
+                    </span>
                     <ul className="text-xs space-y-2 text-zinc-400">
-                      <li>• <code className="text-[#00ff41]">Intent_Type</code>: MOVE_TO, STABILIZE, etc.</li>
-                      <li>• <code className="text-[#00ff41]">Priority</code>: Deterministic Scheduling</li>
-                      <li>• <code className="text-[#00ff41]">Target</code>: Topology-Specific Goal</li>
+                      {industry === IndustryProfile.AEROSPACE_LAUNCH ? (
+                        <>
+                          <li>• <code className="text-[#00ff41]">P_Chamber</code>: ISP Estimation</li>
+                          <li>• <code className="text-[#00ff41]">V_Tube</code>: Stability Projection</li>
+                          <li>• <code className="text-[#00ff41]">FTS_Armed</code>: Range Safety Status</li>
+                        </>
+                      ) : (
+                        <>
+                          <li>• <code className="text-[#00ff41]">Intent_Type</code>: MOVE_TO, STABILIZE, etc.</li>
+                          <li>• <code className="text-[#00ff41]">Priority</code>: Deterministic Scheduling</li>
+                          <li>• <code className="text-[#00ff41]">Target</code>: Topology-Specific Goal</li>
+                        </>
+                      )}
                     </ul>
                   </div>
                   <div className="bg-zinc-900/40 border border-[#00ff41]/20 p-4">
@@ -253,7 +305,21 @@ const LandingPage: React.FC<{
                 </div>
               </div>
               <div className="md:col-span-7 h-[450px]">
-                <IntegrationTerminal />
+                <IntegrationTerminal industry={industry} />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'configuration' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="space-y-4">
+                <PhysicalManifestUploader 
+                  industry={industry} 
+                  onManifestValidated={(m) => console.log("Manifest Validated:", m)} 
+                />
+              </div>
+              <div className="h-[500px]">
+                <ZeroCodeWizard industry={industry} />
               </div>
             </div>
           )}
@@ -261,31 +327,54 @@ const LandingPage: React.FC<{
           {activeTab === 'sdk' && (
             <div className="flex flex-col items-center justify-center space-y-8 text-center animate-in fade-in zoom-in-95 duration-500">
               <div className="space-y-2">
-                <h2 className="text-3xl font-black text-white uppercase">Universal Governor SDK</h2>
-                <p className="text-sm text-zinc-500 uppercase tracking-widest">v5.0-Certified // Aerospace & Space-Grade Modules Included</p>
+                <h2 className="text-3xl font-black text-white uppercase">
+                  {industry === IndustryProfile.AEROSPACE_LAUNCH ? "Space-Grade SDK" : 
+                   industry === IndustryProfile.URBAN_AIR_MOBILITY ? "DO-178C SDK" :
+                   industry === IndustryProfile.FLEET_LOGISTICS ? "Fleet SDK" : "Universal Governor SDK"}
+                </h2>
+                <p className="text-sm text-zinc-500 uppercase tracking-widest">
+                  {industry === IndustryProfile.AEROSPACE_LAUNCH && "v5.0-Certified // NASA-STD-8739.8 Modules Included"}
+                  {industry === IndustryProfile.URBAN_AIR_MOBILITY && "v5.0-Certified // DO-178C DAL-A Traceability Included"}
+                  {industry === IndustryProfile.FLEET_LOGISTICS && "v5.0-Certified // Byzantine Consensus & PTP Modules"}
+                  {industry === IndustryProfile.GENERAL_ROBOTICS && "v5.0-Certified // General Robotics Stability Kernel"}
+                </p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-xl">
                 <button 
                   onClick={() => onDownloadSDK('hpp')}
                   className="flex flex-col items-center p-6 border border-[#00ff41]/40 bg-zinc-900/20 hover:bg-[#00ff41]/10 transition-all group"
                 >
-                  <div className="text-[#00ff41] font-black text-2xl mb-1">GOVERNOR</div>
-                  <div className="text-xs text-zinc-500 uppercase">SentinelGovernor.hpp</div>
+                  <div className="text-[#00ff41] font-black text-2xl mb-1 uppercase">
+                    {industry === IndustryProfile.AEROSPACE_LAUNCH ? "FLIGHT_CORE" : "GOVERNOR"}
+                  </div>
+                  <div className="text-xs text-zinc-500 uppercase">
+                    {industry === IndustryProfile.AEROSPACE_LAUNCH ? "SentinelFlightCore.hpp" : "SentinelGovernor.hpp"}
+                  </div>
                 </button>
                 <button 
                   onClick={() => onDownloadSDK('cpp')}
                   className="flex flex-col items-center p-6 border border-[#00ff41]/40 bg-zinc-900/20 hover:bg-[#00ff41]/10 transition-all group"
                 >
-                  <div className="text-[#00ff41] font-black text-2xl mb-1">AEROSPACE</div>
-                  <div className="text-xs text-zinc-500 uppercase">FTS_Propellant_Observer.cpp</div>
+                  <div className="text-[#00ff41] font-black text-2xl mb-1 uppercase">
+                    {industry === IndustryProfile.AEROSPACE_LAUNCH ? "FTS_MODULE" : 
+                     industry === IndustryProfile.URBAN_AIR_MOBILITY ? "ROTOR_GOV" :
+                     industry === IndustryProfile.FLEET_LOGISTICS ? "CONSENSUS" : "CORE_LOGIC"}
+                  </div>
+                  <div className="text-xs text-zinc-500 uppercase">
+                    {industry === IndustryProfile.AEROSPACE_LAUNCH ? "FTS_Propellant_Observer.cpp" : 
+                     industry === IndustryProfile.URBAN_AIR_MOBILITY ? "RotorFailureGovernance.cpp" :
+                     industry === IndustryProfile.FLEET_LOGISTICS ? "ByzantineConsensus.cpp" : "SentinelCore.cpp"}
+                  </div>
                 </button>
               </div>
               <div className="p-4 border border-zinc-800 bg-zinc-950 max-w-lg text-left">
                 <h4 className="text-xs text-white font-bold uppercase mb-2">Build Requirements</h4>
                 <ul className="text-xs text-zinc-500 space-y-1">
                    <li>• C++17 Standard (Heap-Free, Real-Time)</li>
+                   {industry === IndustryProfile.AEROSPACE_LAUNCH && <li>• Rad-Hard Target Support (PowerPC/SPARC)</li>}
+                   {industry === IndustryProfile.URBAN_AIR_MOBILITY && <li>• DO-178C DAL-A Toolchain (LDRA/Vector)</li>}
+                   {industry === IndustryProfile.FLEET_LOGISTICS && <li>• DDS v2.2 (FastDDS/CycloneDDS)</li>}
                    <li>• PTP v2.1 Support (for L7 Sync)</li>
-                   <li>• DO-178C DAL-A Traceability Metadata</li>
                    <li>• Eigen 3.3.7+ (Matrix Math)</li>
                 </ul>
               </div>
@@ -295,9 +384,16 @@ const LandingPage: React.FC<{
 
         {/* Footer Actions */}
         <div className="mt-12 pt-8 border-t border-zinc-800 flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div className="flex items-center gap-4">
-             <div className="w-2 h-2 bg-[#00ff41] rounded-full animate-ping"></div>
-             <span className="text-[10px] text-zinc-500 uppercase tracking-[0.2em]">Simulation_Engine_Ready</span>
+          <div className="flex items-center gap-6">
+             <div className="flex items-center gap-2">
+               <div className="w-2 h-2 bg-[#00ff41] rounded-full animate-ping"></div>
+               <span className="text-[10px] text-zinc-500 uppercase tracking-[0.2em]">Simulation_Engine_Ready</span>
+             </div>
+             <div className="flex items-center gap-2 px-4 border-l border-zinc-800">
+               <ShieldAlert size={14} className="text-[#00ff41]" />
+               <span className="text-[10px] text-[#00ff41] uppercase tracking-widest font-black">Local-First Safety Kernel</span>
+               <span className="text-[9px] text-zinc-600 uppercase">Air-Gapped Determinism Verified</span>
+             </div>
           </div>
           <button 
             onClick={onEnter}
@@ -437,7 +533,7 @@ const NeuralCommandCenter: React.FC<{
 };
 
 const App: React.FC = () => {
-  const [view, setView] = useState<'onboarding' | 'dashboard'>('onboarding');
+  const [view, setView] = useState<'onboarding' | 'bridge' | 'deployment' | 'dashboard'>('onboarding');
   const [topology, setTopology] = useState<RobotTopology>(RobotTopology.LINEAR_ACTUATOR);
   const [industry, setIndustry] = useState<IndustryProfile>(IndustryProfile.GENERAL_ROBOTICS);
   const sentinelRef = useRef<SentinelRuntime>(new SentinelRuntime());
@@ -451,6 +547,11 @@ const App: React.FC = () => {
   const [isBooting, setIsBooting] = useState(true);
   const [executionMode, setExecutionMode] = useState<'1kHz' | '10kHz'>('1kHz');
   const [platform, setPlatform] = useState<PlatformType>(PlatformType.X86_SIMULATION);
+  
+  // New States for Hardware Bridge and Deployment
+  const [isHardwareLinked, setIsHardwareLinked] = useState(false);
+  const [deploymentLogs, setDeploymentLogs] = useState<string[]>([]);
+  const [isDeploying, setIsDeploying] = useState(false);
 
   const simStateRef = useRef<RobotState>({
     position: [0, 0, 0],
@@ -469,8 +570,29 @@ const App: React.FC = () => {
     sentinelRef.current.setPlatform(platform);
   }, [platform]);
 
+  const handleDeployShim = async () => {
+    setIsDeploying(true);
+    setView('deployment');
+    const logs = [
+      "Initializing Deployment Sequence...",
+      "Cross-compiling Safety Kernel for ARM Cortex-M7...",
+      "Verifying Lyapunov Bounds (dReal/Coq)...",
+      "Injecting Deterministic Firewall...",
+      "Validating PTP Clock Sync...",
+      "Shim Active at 10kHz. Governance Engaged."
+    ];
+    
+    for (const log of logs) {
+      setDeploymentLogs(prev => [...prev, `[DEPLOY] ${log}`]);
+      await new Promise(r => setTimeout(r, 600));
+    }
+    
+    setIsDeploying(false);
+    setView('dashboard');
+  };
+
   useEffect(() => {
-    if (view === 'onboarding') return;
+    if (view !== 'dashboard') return;
 
     let t = 0;
     let animationFrameId: number;
@@ -650,12 +772,7 @@ const App: React.FC = () => {
   };
 
   const handleEnter = () => {
-    setView('dashboard');
-    sentinelRef.current.setIntent({
-      type: IntentType.OSCILLATE,
-      priority: 'LOW',
-      timestamp: Date.now()
-    });
+    setView('bridge');
   };
 
   if (view === 'onboarding') {
@@ -666,6 +783,53 @@ const App: React.FC = () => {
         industry={industry}
         onSelectIndustry={setIndustry}
       />
+    );
+  }
+
+  if (view === 'bridge') {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center p-6">
+        <div className="max-w-2xl w-full h-[500px]">
+          <HardwareBridge 
+            isConnected={isHardwareLinked} 
+            onConnect={() => setIsHardwareLinked(true)} 
+          />
+          {isHardwareLinked && (
+            <div className="mt-8 flex justify-center">
+              <button 
+                onClick={handleDeployShim}
+                className="px-12 py-4 bg-white text-black font-black uppercase tracking-widest hover:bg-[#00ff41] transition-all transform hover:-translate-y-1"
+              >
+                Deploy Safety Shim
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'deployment') {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center p-6 font-mono">
+        <div className="max-w-xl w-full bg-zinc-950 border border-zinc-800 p-8 space-y-6">
+          <div className="flex items-center gap-4 border-b border-zinc-800 pb-4">
+            <Loader2 className="text-[#00ff41] animate-spin" size={24} />
+            <div>
+              <h2 className="text-white font-black uppercase text-sm">Deploying_Safety_Shim</h2>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-widest">Target: ARM Cortex-M7 // DAL-A Certified</p>
+            </div>
+          </div>
+          <div className="space-y-2 bg-black p-4 border border-zinc-900 min-h-[200px]">
+            {deploymentLogs.map((log, i) => (
+              <p key={i} className="text-[10px] text-[#00ff41] leading-tight">{log}</p>
+            ))}
+          </div>
+          <div className="h-1 bg-zinc-900 overflow-hidden">
+            <div className="h-full bg-[#00ff41] animate-[shimmer_2s_infinite]" style={{ width: '100%' }}></div>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -775,6 +939,16 @@ const App: React.FC = () => {
               />
             </div>
 
+            <div className="p-3 border border-[#00ff41]/20 bg-[#00ff41]/5 rounded-sm shrink-0">
+               <div className="flex items-center gap-2 mb-1">
+                 <ShieldAlert size={14} className="text-[#00ff41]" />
+                 <span className="text-[10px] text-[#00ff41] font-black uppercase tracking-widest">Air-Gapped Kernel</span>
+               </div>
+               <p className="text-[9px] text-zinc-500 leading-tight uppercase">
+                 The Safety Kernel runs locally on the edge. AI is utilized only for natural language reconciliation and forensic audit.
+               </p>
+            </div>
+
             <div className="shrink-0 h-80">
               {health && (
                 <HardwareAbstractionPanel 
@@ -802,6 +976,24 @@ const App: React.FC = () => {
             {industry === IndustryProfile.URBAN_AIR_MOBILITY && health?.evtolGovernance && (
               <div className="shrink-0 h-64">
                 <RotorGovernancePanel governance={health.evtolGovernance} />
+              </div>
+            )}
+
+            {topology === RobotTopology.INDUSTRIAL_ARM && health && (
+              <div className="shrink-0 h-64">
+                <JointGovernancePanel health={health} />
+              </div>
+            )}
+
+            {topology === RobotTopology.ROVER && health && (
+              <div className="shrink-0 h-64">
+                <TractionGovernancePanel health={health} />
+              </div>
+            )}
+
+            {topology === RobotTopology.ROCKET && health && (
+              <div className="shrink-0 h-64">
+                <RocketEnginePanel health={health} />
               </div>
             )}
 

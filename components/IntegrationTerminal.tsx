@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Terminal, Send, Cpu, Zap, ShieldAlert } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
+import { IndustryProfile } from '../types';
 
 interface Message {
   role: 'assistant' | 'user';
@@ -8,14 +9,47 @@ interface Message {
   timestamp: number;
 }
 
-const IntegrationTerminal: React.FC = () => {
+interface IntegrationTerminalProps {
+  industry?: IndustryProfile;
+}
+
+const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({ industry = IndustryProfile.GENERAL_ROBOTICS }) => {
+  const getInitialMessage = () => {
+    const base = "SYSTEM: Sentinel Integration Kernel v5.0.2 Online.\n\nI am a Sentinel Integration Engineer. My job is to help you connect your robot to Sentinel — the governance layer between AI and physical actuation.\n\nNOTE: You can also use the 'Zero-Code Wizard' for instant shimming of existing ROS2/DDS topics.\n\n";
+    
+    if (industry === IndustryProfile.AEROSPACE_LAUNCH) {
+      return base + "For Aerospace & Launch, I specialize in NASA-STD-8739.8 compliance and Flight Termination System (FTS) logic.\n\nBefore we begin, I need to ask:\n1. What is your launch vehicle configuration?\n2. Which flight computer architecture are you using? (Rad-Hard, FPGA, etc.)\n3. What is your telemetry link protocol?\n4. Are you integrating with a Range Safety system?";
+    }
+    
+    if (industry === IndustryProfile.URBAN_AIR_MOBILITY) {
+      return base + "For Urban Air Mobility, I specialize in DO-178C DAL-A traceability and multi-rotor failure redistribution.\n\nBefore we begin, I need to ask:\n1. What is your rotor configuration (4 to 12 rotors)?\n2. Which flight controller stack are you using? (PX4, ArduPilot, or Custom?)\n3. How do you handle emergency landing zone calculations?\n4. What is your primary compute platform?";
+    }
+    
+    if (industry === IndustryProfile.FLEET_LOGISTICS) {
+      return base + "For Fleet & Logistics, I specialize in Byzantine-resilient consensus and PTP-synchronized fleet coordination.\n\nBefore we begin, I need to ask:\n1. How many nodes are in your fleet?\n2. What is your network topology (Mesh, Star, etc.)?\n3. Which communication middleware are you using? (ROS2/DDS, Zenoh, etc.)\n4. What is your required clock synchronization precision?";
+    }
+
+    return base + "Before we begin, I need to ask you four questions:\n\n1. What is your robot? (drone, arm, rover, custom hardware?)\n2. Which flight controller stack are you using? (PX4 v1.14+, ArduPilot, or Custom?)\n3. How does your AI currently send commands? (ROS2 topics, direct serial, custom protocol?)\n4. What hardware are you running on? (compute board, OS?)";
+  };
+
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: "SYSTEM: Sentinel Integration Kernel v5.0.2 Online.\n\nI am a Sentinel Integration Engineer. My job is to help you connect your robot to Sentinel — the governance layer between AI and physical actuation.\n\nBefore we begin, I need to ask you four questions:\n\n1. What is your robot? (drone, arm, rover, custom hardware?)\n2. Which flight controller stack are you using? (PX4 v1.14+, ArduPilot, or Custom?)\n3. How does your AI currently send commands? (ROS2 topics, direct serial, custom protocol?)\n4. What hardware are you running on? (compute board, OS?)",
+      content: getInitialMessage(),
       timestamp: Date.now()
     }
   ]);
+
+  // Reset messages when industry changes
+  useEffect(() => {
+    setMessages([
+      {
+        role: 'assistant',
+        content: getInitialMessage(),
+        timestamp: Date.now()
+      }
+    ]);
+  }, [industry]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -45,6 +79,8 @@ const IntegrationTerminal: React.FC = () => {
       const systemInstruction = `
         You are a Sentinel Integration Engineer.
         Your job is to help the user connect their robot to Sentinel — the governance layer between AI and physical actuation.
+        
+        CURRENT CONTEXT: ${industry}
 
         You have deep knowledge of:
         - Sentinel's full layer architecture (L0 through L8)
@@ -56,19 +92,26 @@ const IntegrationTerminal: React.FC = () => {
         - Supported hardware: ARM Cortex-M7, RISC-V, FPGA, Rad-Hard processors
         - Supported interfaces: PWM, CAN bus, UART, SPI
         - Flight Controller Stacks: PX4 (v1.14+ DDS topics vs older uORB), ArduPilot (MAVLink overrides), Custom.
+        
+        INDUSTRY SPECIFICS:
+        - Aerospace & Launch: NASA-STD-8739.8, FTS, propellant flow, Rad-Hard architectures.
+        - Urban Air Mobility: DO-178C DAL-A, rotor failure redistribution, emergency landing zones.
+        - Fleet & Logistics: Byzantine Consensus, PTP sync, ROS2/DDS, multi-agent collision avoidance.
 
         The user has just provided answers to your initial four questions (or is in the process of doing so).
         
         Rules you never break:
         - Never give generic answers. Every response is specific to their robot and their setup.
         - If they haven't answered all four questions yet, politely ask for the missing ones.
+        - Mention the "Zero-Code Integration Proxy" as a viable path for users who don't want to modify their existing code.
         - Once you have the answers, provide:
-          STEP 1: Which Sentinel integration path fits them (ROS2 Safety Node, Shadow Driver SDK, or HIL Bridge).
+          STEP 1: Which Sentinel integration path fits them (Zero-Code Shim, ROS2 Safety Node, Shadow Driver SDK, or HIL Bridge).
           STEP 2: The exact configuration block they need (topology, mass range, actuator limits, admissible set).
           STEP 3: The exact code or command to get started. Real code. Copy-paste ready. No placeholders.
                   - Use REAL Linux/Robotics commands. 
                   - Instead of a fake CLI, use things like 'sqlite3 /var/log/sentinel/ledger.db', 'tail -f /var/log/sentinel/governor.log', or 'cat /home/pi/sentinel_logs/ledger.db'.
                   - If using ROS2, ensure topic names match their stack (e.g., PX4 v1.14+ uses /fmu/in/setpoint_velocity/cmd).
+                  - If Aerospace, use commands relevant to flight computers (e.g., 'fprime-gds', 'mavproxy').
           STEP 4: Tell them what to expect (what Sentinel intercepts, robot behavior, first ledger entry).
           STEP 5: Your Integration Certificate. Explain that once the first ledger entry is confirmed, they can generate a signed Sentinel Integration Certificate. 
                   - This certificate includes a SHA-256 hash of their 'sentinel_gatekeeper.yaml' config.
