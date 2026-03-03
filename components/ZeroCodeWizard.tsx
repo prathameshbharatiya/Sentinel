@@ -8,7 +8,7 @@ interface WizardStep {
   icon: React.ReactNode;
 }
 
-const ZeroCodeWizard: React.FC<{ industry: IndustryProfile }> = ({ industry }) => {
+const ZeroCodeWizard: React.FC<{ industry: IndustryProfile, onFinish?: () => void }> = ({ industry, onFinish }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [config, setConfig] = useState({
     topology: RobotTopology.QUADCOPTER,
@@ -24,7 +24,40 @@ const ZeroCodeWizard: React.FC<{ industry: IndustryProfile }> = ({ industry }) =
     { title: "Generate Gatekeeper", description: "Finalize and export your sentinel_gatekeeper.yaml.", icon: <Code size={18} /> }
   ];
 
-  const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
+  const handleFinish = () => {
+    // 1. Generate YAML Content
+    const yamlContent = `# Sentinel Gatekeeper Configuration
+# Generated: ${new Date().toISOString()}
+# Industry: ${industry}
+
+topology: ${config.topology.replace(/ /g, '_')}
+safety_level: ${config.safetyLevel}
+active_layers: [0, 1, 2, 4]
+auto_recovery: ${config.autoRecovery}
+integrity_hash: 0xEE92B1
+governance_mode: DETERMINISTIC_FIREWALL
+`;
+
+    // 2. Trigger Download
+    const blob = new Blob([yamlContent], { type: 'text/yaml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sentinel_gatekeeper.yaml';
+    a.click();
+    URL.revokeObjectURL(url);
+
+    // 3. Notify Parent
+    if (onFinish) onFinish();
+  };
+
+  const nextStep = () => {
+    if (currentStep === steps.length - 1) {
+      handleFinish();
+    } else {
+      setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
+    }
+  };
   const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 0));
 
   return (

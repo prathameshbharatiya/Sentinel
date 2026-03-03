@@ -122,10 +122,11 @@ const PaperModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen
 
 const LandingPage: React.FC<{ 
   onEnter: () => void, 
+  onFinishWizard: () => void,
   onDownloadSDK: (type: 'hpp' | 'cpp') => void,
   industry: IndustryProfile,
   onSelectIndustry: (industry: IndustryProfile) => void
-}> = ({ onEnter, onDownloadSDK, industry, onSelectIndustry }) => {
+}> = ({ onEnter, onFinishWizard, onDownloadSDK, industry, onSelectIndustry }) => {
   const [activeTab, setActiveTab] = useState<'mission' | 'integration' | 'sdk' | 'configuration'>('mission');
   const [showPaper, setShowPaper] = useState(false);
 
@@ -319,7 +320,10 @@ const LandingPage: React.FC<{
                 />
               </div>
               <div className="h-[500px]">
-                <ZeroCodeWizard industry={industry} />
+                <ZeroCodeWizard 
+                  industry={industry} 
+                  onFinish={onFinishWizard}
+                />
               </div>
             </div>
           )}
@@ -835,6 +839,7 @@ const App: React.FC = () => {
     return (
       <LandingPage 
         onEnter={handleEnter} 
+        onFinishWizard={() => setView('bridge')}
         onDownloadSDK={handleDownloadSDK} 
         industry={industry}
         onSelectIndustry={setIndustry}
