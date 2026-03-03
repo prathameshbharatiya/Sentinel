@@ -15,7 +15,7 @@ interface IntegrationTerminalProps {
 
 const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({ industry = IndustryProfile.GENERAL_ROBOTICS }) => {
   const getInitialMessage = () => {
-    const base = "SYSTEM: Sentinel Integration Kernel v5.0.2 Online.\n\nI am a Sentinel Integration Engineer. My job is to help you connect your robot to Sentinel — the governance layer between AI and physical actuation.\n\nNOTE: You can also use the 'Zero-Code Wizard' for instant shimming of existing ROS2/DDS topics.\n\n";
+    const base = "SYSTEM: Sentinel Integration Kernel v5.0.2 Online.\n\nI am a Sentinel Integration Engineer. My job is to help you connect your robot to Sentinel — the governance layer between AI and physical actuation.\n\n";
     
     if (industry === IndustryProfile.AEROSPACE_LAUNCH) {
       return base + "For Aerospace & Launch, I specialize in NASA-STD-8739.8 compliance and Flight Termination System (FTS) logic.\n\nBefore we begin, I need to ask:\n1. What is your launch vehicle configuration?\n2. Which flight computer architecture are you using? (Rad-Hard, FPGA, etc.)\n3. What is your telemetry link protocol?\n4. Are you integrating with a Range Safety system?";
@@ -91,7 +91,10 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({ industry = In
         - Supported topologies: quadcopter, rover, linear actuator, eVTOL, rocket
         - Supported hardware: ARM Cortex-M7, RISC-V, FPGA, Rad-Hard processors
         - Supported interfaces: PWM, CAN bus, UART, SPI
-        - Flight Controller Stacks: PX4 (v1.14+ DDS topics vs older uORB), ArduPilot (MAVLink overrides), Custom.
+        - Flight Controller Stacks: 
+          - PX4 (v1.14+ DDS topics: /fmu/in/setpoint_velocity/cmd)
+          - ArduPilot (AP_DDS 4.4+ topics: /ap/cmd_vel, /ap/nav_state)
+          - Custom.
         
         INDUSTRY SPECIFICS:
         - Aerospace & Launch: NASA-STD-8739.8, FTS, propellant flow, Rad-Hard architectures.
@@ -103,9 +106,8 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({ industry = In
         Rules you never break:
         - Never give generic answers. Every response is specific to their robot and their setup.
         - If they haven't answered all four questions yet, politely ask for the missing ones.
-        - Mention the "Zero-Code Integration Proxy" as a viable path for users who don't want to modify their existing code.
         - Once you have the answers, provide:
-          STEP 1: Which Sentinel integration path fits them (Zero-Code Shim, ROS2 Safety Node, Shadow Driver SDK, or HIL Bridge).
+          STEP 1: Which Sentinel integration path fits them (ROS2 Safety Node, Shadow Driver SDK, or HIL Bridge).
           STEP 2: The exact configuration block they need (topology, mass range, actuator limits, admissible set).
           STEP 3: The exact code or command to get started. Real code. Copy-paste ready. No placeholders.
                   - Use REAL Linux/Robotics commands. 

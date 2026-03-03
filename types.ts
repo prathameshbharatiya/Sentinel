@@ -17,6 +17,10 @@ export enum IndustryProfile {
 
 export enum RuntimeMode {
   NORMAL = 'Normal',
+  CAUTIOUS = 'Cautious',
+  RESTRICTED = 'Restricted',
+  GOVERNED_HALT = 'Governed Halt',
+  SAFE_STATE = 'Safe State',
   DEGRADED = 'Degraded',
   SAFE_FALLBACK = 'Safe Fallback',
   INTERNAL_FAULT = 'Internal Fault'
@@ -218,28 +222,6 @@ export interface PlatformDescriptor {
   floatingPointLatencyCycles: number;
 }
 
-export interface PhysicalManifest {
-  mass: number;
-  maxTorque: number;
-  maxVelocity: number;
-  maxAcceleration: number;
-  dimensions: { x: number; y: number; z: number };
-  centerOfGravity: [number, number, number];
-  actuatorCount: number;
-  safetyMargin: number; // 0.0 to 1.0
-  isVerified: boolean;
-  sourceFile?: string;
-}
-
-export interface IntegrationConfig {
-  sourceTopic: string;
-  governedTopic: string;
-  interfaceType: 'ROS2' | 'DDS' | 'SERIAL' | 'UDP' | 'CUSTOM';
-  shimMode: 'PASSIVE' | 'ACTIVE_GOVERNANCE' | 'SHADOW_MODE';
-  latencyBudgetUs: number;
-  isShimActive: boolean;
-}
-
 export interface VerificationStatus {
   isVerified: boolean;
   dRealCertificate: string;
@@ -348,6 +330,15 @@ export interface RocketGovernance {
   };
 }
 
+export interface PreflightStatus {
+  configValid: boolean;
+  ros2TopicsLive: boolean;
+  ledgerWritable: boolean;
+  lyapunovBoundsSafe: boolean;
+  isReady: boolean;
+  lastCheckTimestamp: number;
+}
+
 export interface RobotHealth {
   modelConfidence: number;
   driftScore: number;
@@ -376,8 +367,6 @@ export interface RobotHealth {
   nasaCompliance: NasaComplianceStatus;
   evtolGovernance?: EvtolGovernance;
   rocketGovernance?: RocketGovernance;
-  physicalManifest?: PhysicalManifest;
-  integrationConfig?: IntegrationConfig;
   consensus: { [key: string]: number };
   residual: { [key: string]: any };
   stability: { [key: string]: any };

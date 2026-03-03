@@ -1,6 +1,7 @@
 import { 
   RobotState, 
   RobotHealth, 
+  PreflightStatus,
   FailureEvent, 
   HazardLevel, 
   RuntimeMode,
@@ -139,6 +140,16 @@ export class SentinelRuntime {
   private precomputedEnergyLimit = 8000.0;
   private precomputedSafeControlBound = 100.0;
 
+  // L0: Preflight Status
+  private preflightStatus: PreflightStatus = {
+    configValid: false,
+    ros2TopicsLive: false,
+    ledgerWritable: false,
+    lyapunovBoundsSafe: false,
+    isReady: false,
+    lastCheckTimestamp: 0
+  };
+
   // L5: eVTOL Rotor Health Monitor
   private rotors: RotorHealth[] = Array.from({ length: 8 }, (_, i) => ({
     id: `ROTOR_${i + 1}`,
@@ -183,12 +194,42 @@ export class SentinelRuntime {
   };
 
   // Precomputed Allocation Matrices (Simulated Flash Storage)
-  private readonly PRECOMPUTED_ALLOCATION_TABLE: Record<string, number[][]> = {
+  private PRECOMPUTED_ALLOCATION_TABLE: Record<string, number[][]> = {
     'NOMINAL': [[1, 1, 1, 1, 1, 1, 1, 1]],
     'ROTOR_1_FAIL': [[0, 1.14, 1.14, 1.14, 1.14, 1.14, 1.14, 1.14]],
     'ROTOR_3_FAIL': [[1.14, 1.14, 0, 1.14, 1.14, 1.14, 1.14, 1.14]],
     'ROTOR_1_4_FAIL': [[0, 1.33, 1.33, 0, 1.33, 1.33, 1.33, 1.33]]
   };
+
+  /**
+   * Generates all possible rotor failure combinations for a 6-rotor vehicle (21 matrices).
+   * Stored in simulated flash storage.
+   */
+  private generateHexaRotorMatrices() {
+    const n = 6;
+    // 1 nominal + 6 single failures + 15 double failures = 22 matrices (user said 21, maybe excluding nominal)
+    // We'll generate 1 nominal + 6 single + 15 double = 22.
+    
+    // Nominal
+    this.PRECOMPUTED_ALLOCATION_TABLE['HEXA_NOMINAL'] = [new Array(n).fill(1)];
+    
+    // Single failures
+    for (let i = 0; i < n; i++) {
+      const row = new Array(n).fill(n / (n - 1));
+      row[i] = 0;
+      this.PRECOMPUTED_ALLOCATION_TABLE[`HEXA_ROTOR_${i+1}_FAIL`] = [row];
+    }
+    
+    // Double failures
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const row = new Array(n).fill(n / (n - 2));
+        row[i] = 0;
+        row[j] = 0;
+        this.PRECOMPUTED_ALLOCATION_TABLE[`HEXA_ROTOR_${i+1}_${j+1}_FAIL`] = [row];
+      }
+    }
+  }
 
   // Build Identity
   private METADATA: ModelMetadata = {
@@ -260,6 +301,30 @@ export class SentinelRuntime {
 
   constructor() {
     this.hal = new HardwareAbstractionLayer(PlatformType.X86_SIMULATION);
+    this.generateHexaRotorMatrices();
+  }
+
+  public runPreflightCheck(): PreflightStatus {
+    // Simulate preflight verification
+    const status: PreflightStatus = {
+      configValid: this.METADATA.version.includes('certified'),
+      ros2TopicsLive: true, // Simulated
+      ledgerWritable: true, // Simulated
+      lyapunovBoundsSafe: this.verification.isVerified && this.P[0][0] > 0 && this.P[1][1] > 0,
+      isReady: false,
+      lastCheckTimestamp: Date.now()
+    };
+
+    status.isReady = status.configValid && status.ros2TopicsLive && status.ledgerWritable && status.lyapunovBoundsSafe;
+    this.preflightStatus = status;
+    
+    this.recordAudit([0], [0], 1.0); // Log preflight event
+    return status;
+  }
+
+  public setMissionTimeline(events: MissionEvent[]) {
+    this.missionTimeline = events;
+    this.missionStartTime = Date.now();
   }
 
   public setPlatform(type: PlatformType) {
@@ -802,6 +867,17 @@ export class SentinelRuntime {
     if (this.coherenceScore < this.COHERENCE_THRESHOLD) {
       const incoherencePenalty = Math.max(0.1, this.coherenceScore / this.COHERENCE_THRESHOLD);
       safetyFactor *= incoherencePenalty;
+      
+      // State Machine Transition: CAUTIOUS
+      if (this.mode === RuntimeMode.NORMAL) {
+        this.mode = RuntimeMode.CAUTIOUS;
+      }
+    }
+
+    // State Machine: RESTRICTED mode if uncertainty is high
+    const avgCovariance = this.bodies.reduce((sum, b) => sum + b.covariance, 0) / this.bodies.length;
+    if (avgCovariance > 1800 && this.mode === RuntimeMode.NORMAL) {
+      this.mode = RuntimeMode.RESTRICTED;
     }
 
     const safeControl = rawControl.map(u => u * safetyFactor * this.smoothedVelocityScale);
@@ -1000,6 +1076,7 @@ export class SentinelRuntime {
 
     return {
       ...h,
+      preflightStatus: this.preflightStatus,
       intentCoherence: {
         isCoherent: this.coherenceScore > 0.6,
         commandFrequencyHz: this.lastIntentTime > 0 ? 1000 / (Date.now() - this.lastIntentTime + 1) : 0,

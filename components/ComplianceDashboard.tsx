@@ -4,9 +4,10 @@ import { ClipboardCheck, BarChart3, History, Bug, ShieldAlert, CheckCircle2 } fr
 
 interface ComplianceDashboardProps {
   status: ComplianceStatus;
+  onExportCompliance?: () => void;
 }
 
-const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({ status }) => {
+const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({ status, onExportCompliance }) => {
   return (
     <div className="border border-[#00ff41]/30 bg-zinc-900/40 p-3 flex flex-col h-full overflow-hidden">
       <div className="flex items-center justify-between mb-2 border-b border-zinc-800 pb-1">
@@ -14,9 +15,17 @@ const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({ status }) => 
           <ClipboardCheck size={14} className="text-[#00ff41]" />
           L9: DO-178C_Compliance_DAL_{status.dalLevel}
         </h2>
-        <div className="flex items-center gap-1">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#00ff41] animate-pulse"></div>
-          <span className="text-[10px] text-[#00ff41] uppercase font-bold">Certified</span>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={onExportCompliance}
+            className="text-[8px] bg-[#00ff41] text-black px-1 font-bold uppercase transition-all hover:bg-white"
+          >
+            Export_Proofs
+          </button>
+          <div className="flex items-center gap-1">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#00ff41] animate-pulse"></div>
+            <span className="text-[10px] text-[#00ff41] uppercase font-bold">Certified</span>
+          </div>
         </div>
       </div>
 

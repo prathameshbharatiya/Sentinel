@@ -1,22 +1,47 @@
 import React from 'react';
-import { MissionPhaseState } from '../types';
+import { MissionPhaseState, MissionEvent } from '../types';
 import { Activity, Zap, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 interface MissionPhaseManagerProps {
   state: MissionPhaseState;
+  onUpdateTimeline?: (events: MissionEvent[]) => void;
 }
 
-const MissionPhaseManager: React.FC<MissionPhaseManagerProps> = ({ state }) => {
+const MissionPhaseManager: React.FC<MissionPhaseManagerProps> = ({ state, onUpdateTimeline }) => {
   const { isPreparing, isTransitioning, timeToNextEvent, tau_prepare } = state;
+  const [showEditor, setShowEditor] = React.useState(false);
+  const [newEvent, setNewEvent] = React.useState({ label: '', time: 30, delta: 0 });
+
+  const handleAddEvent = () => {
+    if (!newEvent.label || !onUpdateTimeline) return;
+    const event: MissionEvent = {
+      id: `EVT-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
+      timestamp: newEvent.time * 1000,
+      label: newEvent.label,
+      expectedMassDelta: newEvent.delta,
+      transitionWindowMs: 2000
+    };
+    // In a real app, we'd append to existing timeline. 
+    // For this demo, we'll just send a new one or the user can manage it.
+    onUpdateTimeline([event]);
+    setNewEvent({ label: '', time: 30, delta: 0 });
+    setShowEditor(false);
+  };
 
   return (
-    <div className="border border-[#00ff41]/20 bg-zinc-900/20 p-3 flex flex-col h-full">
+    <div className="border border-[#00ff41]/20 bg-zinc-900/20 p-3 flex flex-col h-full relative">
       <div className="flex items-center justify-between mb-2 border-b border-zinc-800 pb-1">
         <h2 className="font-black uppercase text-xs flex items-center gap-2">
           <Activity size={12} className="text-[#00ff41]" />
           L0.5: Mission_Phase_Manager
         </h2>
         <div className="flex items-center gap-2">
+           <button 
+             onClick={() => setShowEditor(!showEditor)}
+             className="text-[8px] border border-zinc-800 px-1 hover:border-[#00ff41] text-zinc-500 hover:text-[#00ff41] transition-colors"
+           >
+             {showEditor ? 'CLOSE' : 'EDIT_TIMELINE'}
+           </button>
            {isTransitioning && (
              <span className="text-[10px] bg-blue-900/30 text-blue-400 px-1 border border-blue-900 uppercase font-bold animate-pulse">Transition_Active</span>
            )}
@@ -26,7 +51,47 @@ const MissionPhaseManager: React.FC<MissionPhaseManagerProps> = ({ state }) => {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col justify-center gap-2">
+      {showEditor ? (
+        <div className="flex-1 flex flex-col gap-2 bg-black/60 p-2 border border-zinc-800 z-10">
+          <span className="text-[10px] text-[#00ff41] font-bold uppercase">Define_Planned_Event</span>
+          <div className="space-y-2">
+            <input 
+              type="text" 
+              placeholder="EVENT_LABEL (e.g. STAGING)" 
+              value={newEvent.label}
+              onChange={e => setNewEvent({...newEvent, label: e.target.value.toUpperCase()})}
+              className="w-full bg-zinc-900 border border-zinc-800 text-[10px] p-1 text-white outline-none focus:border-[#00ff41]"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[8px] text-zinc-500 uppercase">T+ (seconds)</label>
+                <input 
+                  type="number" 
+                  value={newEvent.time}
+                  onChange={e => setNewEvent({...newEvent, time: parseInt(e.target.value)})}
+                  className="w-full bg-zinc-900 border border-zinc-800 text-[10px] p-1 text-white outline-none"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[8px] text-zinc-500 uppercase">Mass_Δ (kg)</label>
+                <input 
+                  type="number" 
+                  value={newEvent.delta}
+                  onChange={e => setNewEvent({...newEvent, delta: parseFloat(e.target.value)})}
+                  className="w-full bg-zinc-900 border border-zinc-800 text-[10px] p-1 text-white outline-none"
+                />
+              </div>
+            </div>
+            <button 
+              onClick={handleAddEvent}
+              className="w-full py-1 bg-[#00ff41] text-black text-[10px] font-black uppercase"
+            >
+              Commit to Timeline
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col justify-center gap-2">
         <div className="flex justify-between items-end">
           <div className="flex flex-col">
             <span className="text-[10px] text-zinc-500 uppercase">Current_Event</span>
@@ -62,6 +127,7 @@ const MissionPhaseManager: React.FC<MissionPhaseManagerProps> = ({ state }) => {
           </div>
         </div>
       </div>
+      )}
 
       <div className="mt-2 flex flex-col gap-1 border-t border-zinc-800 pt-2">
         <div className="flex items-center gap-2">

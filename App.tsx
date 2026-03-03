@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { SentinelRuntime } from './services/SentinelRuntime';
-import { RobotState, RobotHealth, HazardLevel, RuntimeMode, IntentType, RobotIntent, RobotTopology, PlatformType, IndustryProfile } from './types';
+import { RobotState, RobotHealth, HazardLevel, RuntimeMode, IntentType, RobotIntent, RobotTopology, PlatformType, IndustryProfile, PreflightStatus } from './types';
 import TelemetryChart from './components/TelemetryChart';
 import HealthMetric from './components/HealthMetric';
 import AdvisoryPanel from './components/AdvisoryPanel';
@@ -550,6 +550,7 @@ const App: React.FC = () => {
   
   // New States for Hardware Bridge and Deployment
   const [isHardwareLinked, setIsHardwareLinked] = useState(false);
+  const [preflightStatus, setPreflightStatus] = useState<PreflightStatus | null>(null);
   const [deploymentLogs, setDeploymentLogs] = useState<string[]>([]);
   const [isDeploying, setIsDeploying] = useState(false);
 
@@ -571,6 +572,15 @@ const App: React.FC = () => {
   }, [platform]);
 
   const handleDeployShim = async () => {
+    // Run Preflight Check first
+    const status = sentinelRef.current.runPreflightCheck();
+    setPreflightStatus(status);
+    
+    if (!status.isReady) {
+      setDeploymentLogs(prev => [...prev, `[ERROR] Preflight Check Failed: ${!status.configValid ? 'Invalid Config' : !status.lyapunovBoundsSafe ? 'Lyapunov Bounds Unsafe' : 'System Not Ready'}`]);
+      return;
+    }
+
     setIsDeploying(true);
     setView('deployment');
     const logs = [
@@ -589,6 +599,52 @@ const App: React.FC = () => {
     
     setIsDeploying(false);
     setView('dashboard');
+  };
+
+  const handleGenerateCertificate = (entryId: string) => {
+    const entry = ledger.find(e => e.id === entryId);
+    if (!entry) return;
+    
+    const cert = {
+      title: "SENTINEL_GOVERNANCE_CERTIFICATE",
+      entryId: entry.id,
+      timestamp: entry.precisionTimestamp,
+      hash: entry.hash,
+      topology: entry.topology,
+      governance_proof: entry.governance,
+      signer: "SENTINEL_V5_CORE_0xEE92"
+    };
+
+    const blob = new Blob([JSON.stringify(cert, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Sentinel_Cert_${entryId}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportCompliance = () => {
+    if (!health) return;
+    const report = {
+      standard: industry === IndustryProfile.AEROSPACE_LAUNCH ? "NASA-STD-8739.8" : "DO-178C DAL-A",
+      compliance_status: health.compliance,
+      nasa_status: health.nasaCompliance,
+      audit_ledger_summary: {
+        total_entries: ledger.length,
+        overrides_detected: ledger.filter(e => e.governance.clamped).length
+      },
+      verification_proof: health.verification,
+      timestamp: new Date().toISOString()
+    };
+
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Sentinel_Compliance_Report.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   useEffect(() => {
@@ -795,10 +851,15 @@ const App: React.FC = () => {
             onConnect={() => setIsHardwareLinked(true)} 
           />
           {isHardwareLinked && (
-            <div className="mt-8 flex justify-center">
+            <div className="mt-8 flex flex-col items-center gap-4">
+              {preflightStatus && !preflightStatus.isReady && (
+                <div className="bg-rose-900/20 border border-rose-500 p-3 text-rose-500 text-[10px] uppercase font-bold animate-pulse">
+                  Preflight_Check_Failed: System_Inhibited
+                </div>
+              )}
               <button 
                 onClick={handleDeployShim}
-                className="px-12 py-4 bg-white text-black font-black uppercase tracking-widest hover:bg-[#00ff41] transition-all transform hover:-translate-y-1"
+                className="px-12 py-4 bg-white text-black font-black uppercase tracking-widest hover:bg-[#00ff41] transition-all transform hover:-translate-y-1 disabled:opacity-50"
               >
                 Deploy Safety Shim
               </button>
@@ -964,7 +1025,12 @@ const App: React.FC = () => {
             </div>
 
             <div className="shrink-0 h-64">
-              {health && <ComplianceDashboard status={health.compliance} />}
+              {health && (
+                <ComplianceDashboard 
+                  status={health.compliance} 
+                  onExportCompliance={handleExportCompliance}
+                />
+              )}
             </div>
 
             {industry === IndustryProfile.AEROSPACE_LAUNCH && health && (
@@ -1047,7 +1113,10 @@ const App: React.FC = () => {
 
             {(industry === IndustryProfile.AEROSPACE_LAUNCH || industry === IndustryProfile.URBAN_AIR_MOBILITY) && health && (
               <div className="h-40 shrink-0">
-                <MissionPhaseManager state={health.missionPhase} />
+                <MissionPhaseManager 
+                  state={health.missionPhase} 
+                  onUpdateTimeline={(events) => sentinelRef.current.setMissionTimeline(events)}
+                />
               </div>
             )}
 
@@ -1139,7 +1208,10 @@ const App: React.FC = () => {
           </div>
 
           <div className="md:col-span-3 h-full overflow-hidden">
-             <SentinelLedger entries={ledger} />
+             <SentinelLedger 
+               entries={ledger} 
+               onGenerateCertificate={handleGenerateCertificate}
+             />
           </div>
 
         </div>

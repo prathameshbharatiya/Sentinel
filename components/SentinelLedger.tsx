@@ -3,9 +3,20 @@ import { AuditEntry } from '../types';
 
 interface SentinelLedgerProps {
   entries: AuditEntry[];
+  onGenerateCertificate?: (entryId: string) => void;
 }
 
-const SentinelLedger: React.FC<SentinelLedgerProps> = ({ entries }) => {
+const SentinelLedger: React.FC<SentinelLedgerProps> = ({ entries, onGenerateCertificate }) => {
+  const [filter, setFilter] = React.useState('');
+  const [showOverridesOnly, setShowOverridesOnly] = React.useState(false);
+
+  const filteredEntries = entries.filter(entry => {
+    const matchesSearch = entry.id.toLowerCase().includes(filter.toLowerCase()) || 
+                         entry.intent?.type.toLowerCase().includes(filter.toLowerCase());
+    const matchesOverride = showOverridesOnly ? entry.governance.clamped : true;
+    return matchesSearch && matchesOverride;
+  });
+
   return (
     <div className="border border-[#00ff41]/30 bg-zinc-900/40 p-3 flex flex-col h-full">
       <div className="flex items-center justify-between mb-2 border-b border-zinc-800 pb-1">
@@ -13,15 +24,35 @@ const SentinelLedger: React.FC<SentinelLedgerProps> = ({ entries }) => {
           <div className="w-2 h-2 bg-[#00ff41] animate-pulse"></div>
           L7: Forensic_Audit_Ledger
         </h2>
-        <span className="text-[10px] opacity-40 uppercase tracking-widest">Signed_Proofs</span>
+        <div className="flex items-center gap-2">
+          <input 
+            type="text" 
+            placeholder="SEARCH_LEDGER..." 
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            className="bg-black border border-zinc-800 text-[8px] px-1 py-0.5 text-[#00ff41] outline-none focus:border-[#00ff41] w-24"
+          />
+          <button 
+            onClick={() => setShowOverridesOnly(!showOverridesOnly)}
+            className={`text-[8px] border px-1 uppercase font-bold transition-colors ${showOverridesOnly ? 'bg-[#00ff41] text-black border-[#00ff41]' : 'border-zinc-800 text-zinc-500'}`}
+          >
+            Overrides
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-        {entries.length === 0 ? (
-          <div className="text-center py-20 opacity-20 uppercase tracking-widest text-[11px]">Ledger_Empty</div>
+        {filteredEntries.length === 0 ? (
+          <div className="text-center py-20 opacity-20 uppercase tracking-widest text-[11px]">No_Matches_Found</div>
         ) : (
-          entries.slice().reverse().map(entry => (
-            <div key={entry.id} className="border border-zinc-800 p-2 bg-black/50 hover:border-[#00ff41]/30 transition-all group">
+          filteredEntries.slice().reverse().map(entry => (
+            <div key={entry.id} className="border border-zinc-800 p-2 bg-black/50 hover:border-[#00ff41]/30 transition-all group relative">
+              <button 
+                onClick={() => onGenerateCertificate?.(entry.id)}
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-[8px] bg-[#00ff41] text-black px-1 font-bold uppercase transition-opacity"
+              >
+                Gen_Cert
+              </button>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[10px] font-bold text-[#00ff41]">{entry.id}</span>
                 <span className="text-[10px] opacity-30 font-mono">{entry.hash}</span>
