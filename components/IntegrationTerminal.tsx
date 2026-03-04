@@ -80,7 +80,11 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
     setIsTyping(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const apiKey = process.env.API_KEY;
+      if (!apiKey) {
+        throw new Error("API_KEY_MISSING");
+      }
+      const ai = new GoogleGenAI({ apiKey });
       
       const systemInstruction = `
         You are a Sentinel Integration Engineer.
@@ -174,11 +178,19 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
       }
 
       setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Integration Engineer Error:", error);
+      let content = "CRITICAL: Connection to Sentinel Logic Core lost. Verify network status and retry.";
+      
+      if (error.message === "API_KEY_MISSING") {
+        content = "CRITICAL: Sentinel Logic Core unreachable. GEMINI_API_KEY is not configured in the environment. Please set the API_KEY to enable neural-symbolic governance.";
+      } else if (error.message?.includes("API_KEY_INVALID")) {
+        content = "CRITICAL: Sentinel Logic Core rejected credentials. The provided API_KEY is invalid or expired.";
+      }
+
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: "CRITICAL: Connection to Sentinel Logic Core lost. Verify API_KEY and network status.",
+        content,
         timestamp: Date.now()
       }]);
     } finally {

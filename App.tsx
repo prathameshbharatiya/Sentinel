@@ -473,7 +473,11 @@ const NeuralCommandCenter: React.FC<{
     setHistory(prev => [...prev, { role: 'user', text: userMsg }]);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const apiKey = process.env.API_KEY;
+      if (!apiKey) {
+        throw new Error("API_KEY_MISSING");
+      }
+      const ai = new GoogleGenAI({ apiKey });
       
       // L0: Dual-Parser Architecture (LLM + Symbolic Fallback)
       const symbolicMatch = userMsg.match(/(move|go|target)\s+(to\s+)?(-?\d+)/i);
@@ -525,8 +529,12 @@ const NeuralCommandCenter: React.FC<{
       } catch (err) {
         setHistory(prev => [...prev, { role: 'ai', text: "Error parsing intent. Please try again." }]);
       }
-    } catch (err) {
-      setHistory(prev => [...prev, { role: 'ai', text: "Neural link failed. Check API key." }]);
+    } catch (err: any) {
+      let errorMsg = "Neural link failed. Check network status.";
+      if (err.message === "API_KEY_MISSING") {
+        errorMsg = "Neural link failed. API_KEY is missing in environment.";
+      }
+      setHistory(prev => [...prev, { role: 'ai', text: errorMsg }]);
     }
   };
 
@@ -877,7 +885,11 @@ const App: React.FC = () => {
     setAnalyzing(true);
     setAnalysis(null);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const apiKey = process.env.API_KEY;
+      if (!apiKey) {
+        throw new Error("API_KEY_MISSING");
+      }
+      const ai = new GoogleGenAI({ apiKey });
       const prompt = `OFFLINE FORENSIC AUDIT (AIR-GAPPED REPLAY). 
         KERNEL_BUILD: ${health?.metadata.buildFingerprint}
         EVENT_SIGNED_BY: ${failure.signedBy}
@@ -889,8 +901,12 @@ const App: React.FC = () => {
       
       const res = await ai.models.generateContent({ model: 'gemini-3-pro-preview', contents: prompt });
       setAnalysis(res.text);
-    } catch (e) { 
-      setAnalysis("REPLAY_ERROR: Forensic engine unreachable."); 
+    } catch (e: any) { 
+      if (e.message === "API_KEY_MISSING") {
+        setAnalysis("REPLAY_ERROR: API_KEY is missing in environment.");
+      } else {
+        setAnalysis("REPLAY_ERROR: Forensic engine unreachable."); 
+      }
     } finally { 
       setAnalyzing(false); 
     }
