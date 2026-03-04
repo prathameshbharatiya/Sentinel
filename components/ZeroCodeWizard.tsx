@@ -8,31 +8,84 @@ interface WizardStep {
   icon: React.ReactNode;
 }
 
-const ZeroCodeWizard: React.FC<{ industry: IndustryProfile, onFinish?: () => void }> = ({ industry, onFinish }) => {
+const ZeroCodeWizard: React.FC<{ 
+  industry: IndustryProfile, 
+  topology: RobotTopology,
+  onTopologyChange: (topology: RobotTopology) => void,
+  onFinish?: () => void 
+}> = ({ industry, topology, onTopologyChange, onFinish }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [config, setConfig] = useState({
-    topology: RobotTopology.QUADCOPTER,
+    topology: topology,
     safetyLevel: 'DAL-A',
     governanceLayers: ['L0', 'L1', 'L2', 'L4'],
     autoRecovery: true
   });
 
+  // Sync internal config when topology prop changes
+  React.useEffect(() => {
+    setConfig(prev => ({ ...prev, topology: topology }));
+  }, [topology]);
+
   const steps: WizardStep[] = [
-    { title: "Topology Selection", description: "Define the physical structure of your autonomous agent.", icon: <Settings size={18} /> },
     { title: "Safety Envelopes", description: "Set deterministic bounds for actuators and state-space.", icon: <Shield size={18} /> },
     { title: "Governance Layers", description: "Select which Sentinel layers to activate for this mission.", icon: <Zap size={18} /> },
     { title: "Generate Gatekeeper", description: "Finalize and export your sentinel_gatekeeper.yaml.", icon: <Code size={18} /> }
   ];
 
+  const getSafetyStandards = () => {
+    switch (industry) {
+      case IndustryProfile.AEROSPACE_LAUNCH:
+        return { name: "NASA NPR 7150.2", levels: ["Class C", "Class B", "Class A"] };
+      case IndustryProfile.URBAN_AIR_MOBILITY:
+        return { name: "DO-178C", levels: ["DAL-E", "DAL-C", "DAL-A"] };
+      case IndustryProfile.FLEET_LOGISTICS:
+        return { name: "ISO 13849", levels: ["PL-a", "PL-c", "PL-e"] };
+      case IndustryProfile.GENERAL_ROBOTICS:
+        return { name: "IEC 61508", levels: ["SIL 1", "SIL 2", "SIL 4"] };
+      default:
+        return { name: "General Safety", levels: ["Low", "Medium", "High"] };
+    }
+  };
+
+  const standard = getSafetyStandards();
+
+  // Initialize safety level if current one is not in the new standard's levels
+  React.useEffect(() => {
+    if (!standard.levels.includes(config.safetyLevel)) {
+      setConfig(prev => ({ ...prev, safetyLevel: standard.levels[standard.levels.length - 1] }));
+    }
+  }, [industry]);
+
+  const isLayerMandatory = (layer: string) => {
+    const highSafety = ["Class A", "DAL-A", "PL-e", "SIL 4", "High"].includes(config.safetyLevel);
+    if (highSafety) {
+      return ["L4: Lyapunov Kernel", "L0: Topology Bridge", "L2: Digital Twin"].includes(layer);
+    }
+    return ["L0: Topology Bridge"].includes(layer);
+  };
+
   const handleFinish = () => {
     // 1. Generate YAML Content
+    const activeLayers = ['L0', 'L1', 'L2', 'L3', 'L4'].filter(l => {
+      const layerName = {
+        'L0': 'L0: Topology Bridge',
+        'L1': 'L1: Intent Coherence',
+        'L2': 'L2: Digital Twin',
+        'L3': 'L3: Byzantine Consensus',
+        'L4': 'L4: Lyapunov Kernel'
+      }[l];
+      return layerName && (isLayerMandatory(layerName) || config.governanceLayers.includes(l));
+    });
+
     const yamlContent = `# Sentinel Gatekeeper Configuration
 # Generated: ${new Date().toISOString()}
 # Industry: ${industry}
+# Standard: ${standard.name}
 
-topology: ${config.topology.replace(/ /g, '_')}
+topology: ${topology.replace(/ /g, '_')}
 safety_level: ${config.safetyLevel}
-active_layers: [0, 1, 2, 4]
+active_layers: ${JSON.stringify(activeLayers)}
 auto_recovery: ${config.autoRecovery}
 integrity_hash: 0xEE92B1
 governance_mode: DETERMINISTIC_FIREWALL
@@ -93,33 +146,14 @@ governance_mode: DETERMINISTIC_FIREWALL
 
           <div className="bg-black border border-zinc-800 p-6 space-y-6">
             {currentStep === 0 && (
-              <div className="space-y-4">
-                <label className="text-xs text-zinc-500 uppercase font-bold block">Target Topology</label>
-                <div className="grid grid-cols-1 gap-2">
-                  {Object.values(RobotTopology).map(t => (
-                    <button 
-                      key={t}
-                      onClick={() => setConfig({...config, topology: t})}
-                      className={`p-3 text-left text-sm border transition-all ${
-                        config.topology === t ? 'border-[#00ff41] bg-[#00ff41]/5 text-white' : 'border-zinc-800 text-zinc-500 hover:border-zinc-700'
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {currentStep === 1 && (
               <div className="space-y-6">
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <label className="text-xs text-zinc-500 uppercase font-bold">Safety Level</label>
+                    <label className="text-xs text-zinc-500 uppercase font-bold">Safety Standard: {standard.name}</label>
                     <span className="text-[#00ff41] text-xs font-bold">{config.safetyLevel}</span>
                   </div>
                   <div className="flex gap-2">
-                    {['DAL-E', 'DAL-C', 'DAL-A'].map(level => (
+                    {standard.levels.map(level => (
                       <button 
                         key={level}
                         onClick={() => setConfig({...config, safetyLevel: level})}
@@ -134,27 +168,48 @@ governance_mode: DETERMINISTIC_FIREWALL
                 </div>
                 <div className="p-3 bg-amber-950/10 border border-amber-900/30">
                   <p className="text-xs text-amber-500 leading-relaxed uppercase">
-                    DAL-A requires formal verification of all L4 Lyapunov transitions.
+                    {config.safetyLevel.includes('A') || config.safetyLevel.includes('e') || config.safetyLevel.includes('4') ? 
+                      `${config.safetyLevel} requires formal verification and mandatory L4 Lyapunov monitoring.` : 
+                      `Standard operational bounds for ${config.safetyLevel} missions.`}
                   </p>
                 </div>
               </div>
             )}
 
-            {currentStep === 2 && (
+            {currentStep === 1 && (
               <div className="space-y-3">
                 <label className="text-xs text-zinc-500 uppercase font-bold block">Active Governance Layers</label>
-                {['L0: Topology Bridge', 'L1: Intent Coherence', 'L2: Digital Twin', 'L3: Byzantine Consensus', 'L4: Lyapunov Kernel'].map((layer, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 border border-zinc-800 bg-zinc-900/20">
-                    <span className="text-sm text-zinc-300 uppercase">{layer}</span>
-                    <div className="w-4 h-4 border border-[#00ff41] flex items-center justify-center">
-                      <div className="w-2 h-2 bg-[#00ff41]"></div>
+                {['L0: Topology Bridge', 'L1: Intent Coherence', 'L2: Digital Twin', 'L3: Byzantine Consensus', 'L4: Lyapunov Kernel'].map((layer, i) => {
+                  const mandatory = isLayerMandatory(layer);
+                  const layerId = `L${i}`;
+                  return (
+                    <div 
+                      key={i} 
+                      onClick={() => !mandatory && setConfig(prev => ({
+                        ...prev,
+                        governanceLayers: prev.governanceLayers.includes(layerId) 
+                          ? prev.governanceLayers.filter(l => l !== layerId)
+                          : [...prev.governanceLayers, layerId]
+                      }))}
+                      className={`flex items-center justify-between p-3 border transition-all ${
+                        mandatory ? 'border-[#00ff41]/50 bg-[#00ff41]/5 opacity-100' : 
+                        config.governanceLayers.includes(layerId) ? 'border-zinc-700 bg-zinc-900/40' : 'border-zinc-800 bg-zinc-900/10 opacity-60'
+                      } ${!mandatory ? 'cursor-pointer hover:border-zinc-600' : 'cursor-default'}`}
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-sm text-zinc-300 uppercase">{layer}</span>
+                        {mandatory && <span className="text-[8px] text-[#00ff41] uppercase font-bold">Mandatory for {config.safetyLevel}</span>}
+                      </div>
+                      <div className={`w-4 h-4 border ${mandatory || config.governanceLayers.includes(layerId) ? 'border-[#00ff41]' : 'border-zinc-700'} flex items-center justify-center`}>
+                        {(mandatory || config.governanceLayers.includes(layerId)) && <div className="w-2 h-2 bg-[#00ff41]"></div>}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
-            {currentStep === 3 && (
+            {currentStep === 2 && (
               <div className="space-y-6">
                 <div className="bg-zinc-900 p-4 border border-zinc-800">
                   <div className="flex items-center gap-2 mb-3 text-[#00ff41]">
@@ -162,7 +217,7 @@ governance_mode: DETERMINISTIC_FIREWALL
                     <span className="text-xs font-bold uppercase">sentinel_gatekeeper.yaml</span>
                   </div>
                   <pre className="text-xs text-zinc-400 overflow-x-auto">
-                    {`topology: ${config.topology.replace(/ /g, '_')}\nsafety_level: ${config.safetyLevel}\nactive_layers: [0, 1, 2, 4]\nauto_recovery: true\nintegrity_hash: 0xEE92B1`}
+                    {`topology: ${topology.replace(/ /g, '_')}\nsafety_level: ${config.safetyLevel}\nactive_layers: [0, 1, 2, 4]\nauto_recovery: true\nintegrity_hash: 0xEE92B1`}
                   </pre>
                 </div>
                 <div className="flex items-center gap-3 p-4 bg-emerald-950/20 border border-emerald-900/50 text-emerald-500">

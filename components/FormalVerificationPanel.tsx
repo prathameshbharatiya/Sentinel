@@ -1,12 +1,31 @@
 import React from 'react';
-import { VerificationStatus } from '../types';
+import { VerificationStatus, IndustryProfile } from '../types';
 import { ShieldCheck, FileCheck, CheckCircle2, Lock, AlertTriangle } from 'lucide-react';
 
 interface FormalVerificationPanelProps {
   status: VerificationStatus;
+  industry?: IndustryProfile;
 }
 
-const FormalVerificationPanel: React.FC<FormalVerificationPanelProps> = ({ status }) => {
+const FormalVerificationPanel: React.FC<FormalVerificationPanelProps> = ({ status, industry = IndustryProfile.GENERAL_ROBOTICS }) => {
+  const getGuaranteeLabel = () => {
+    switch (industry) {
+      case IndustryProfile.AEROSPACE_LAUNCH: return "Aerospace_Stability_Guarantee";
+      case IndustryProfile.URBAN_AIR_MOBILITY: return "UAM_Stability_Guarantee";
+      case IndustryProfile.FLEET_LOGISTICS: return "Fleet_Coordination_Guarantee";
+      default: return "Industrial_Stability_Guarantee";
+    }
+  };
+
+  const getStandardLabel = () => {
+    switch (industry) {
+      case IndustryProfile.AEROSPACE_LAUNCH: return "NASA-STD-8739.8";
+      case IndustryProfile.URBAN_AIR_MOBILITY: return "RT-DO-178C-DAL-A";
+      case IndustryProfile.FLEET_LOGISTICS: return "ISO-13849-PL-e";
+      default: return "IEC-61508-SIL-4";
+    }
+  };
+
   return (
     <div className="border border-[#00ff41]/30 bg-zinc-900/40 p-3 flex flex-col h-full overflow-hidden">
       <div className="flex items-center justify-between mb-2 border-b border-zinc-800 pb-1">
@@ -67,7 +86,7 @@ const FormalVerificationPanel: React.FC<FormalVerificationPanelProps> = ({ statu
         <div className="p-2 border border-amber-500/20 bg-amber-500/5 space-y-1.5">
           <div className="flex items-center gap-1.5">
             <Lock size={12} className="text-amber-500" />
-            <span className="text-[10px] font-bold uppercase text-amber-500">Aerospace_Stability_Guarantee</span>
+            <span className="text-[10px] font-bold uppercase text-amber-500">{getGuaranteeLabel()}</span>
           </div>
           <p className="text-xs text-zinc-400 leading-tight">
             The kernel provides a machine-checkable proof that if the tube computation returns <span className="text-emerald-400">STABLE</span>, the physical system is guaranteed to be stable within L2 parameter bounds.
@@ -86,7 +105,7 @@ const FormalVerificationPanel: React.FC<FormalVerificationPanelProps> = ({ statu
             <ShieldCheck size={14} className="text-[#00ff41]" />
           </div>
           <div className="text-xs text-zinc-500 uppercase leading-tight">
-            Formal Certificate: <span className="text-white">RT-DO-178C-DAL-A</span> compliant kernel logic.
+            Formal Certificate: <span className="text-white">{getStandardLabel()}</span> compliant kernel logic.
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Terminal, Send, Cpu, Zap, ShieldAlert } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
-import { IndustryProfile } from '../types';
+import { Terminal, Send, Cpu, Zap, ShieldAlert, Bot, User, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { IndustryProfile, RobotTopology } from '../types';
 
 interface Message {
   role: 'assistant' | 'user';
@@ -11,9 +11,15 @@ interface Message {
 
 interface IntegrationTerminalProps {
   industry?: IndustryProfile;
+  onTopologyDetected?: (topology: RobotTopology) => void;
+  onIndustryDetected?: (industry: IndustryProfile) => void;
 }
 
-const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({ industry = IndustryProfile.GENERAL_ROBOTICS }) => {
+const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({ 
+  industry = IndustryProfile.GENERAL_ROBOTICS,
+  onTopologyDetected,
+  onIndustryDetected
+}) => {
   const getInitialMessage = () => {
     const base = "SYSTEM: Sentinel Integration Kernel v5.0.2 Online.\n\nI am a Sentinel Integration Engineer. My job is to help you connect your robot to Sentinel — the governance layer between AI and physical actuation.\n\n";
     
@@ -103,6 +109,13 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({ industry = In
 
         The user has just provided answers to your initial four questions (or is in the process of doing so).
         
+        DETECTION RULE:
+        If you have enough information to determine the robot's topology or industry, you MUST include a hidden tag at the end of your response in this EXACT format:
+        [SENTINEL_CONFIG: {"topology": "Quadcopter (3D-Flight)", "industry": "Urban Air Mobility"}]
+        
+        Available Topologies: "Linear Actuator (1-DOF)", "Quadcopter (3D-Flight)", "Mobile Rover (2D-Traction)", "Robotic Arm (2-DOF)", "eVTOL (Multi-Rotor Flight)", "Rocket (Vertical Ascent)"
+        Available Industries: "Aerospace & Launch", "Urban Air Mobility", "Fleet & Logistics", "General Robotics"
+
         Rules you never break:
         - Never give generic answers. Every response is specific to their robot and their setup.
         - If they haven't answered all four questions yet, politely ask for the missing ones.
@@ -144,6 +157,21 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({ industry = In
         content: response.text || "Error: Kernel timed out. Please retry command.",
         timestamp: Date.now()
       };
+
+      // Configuration Detection
+      const configMatch = aiMessage.content.match(/\[SENTINEL_CONFIG:\s*({.*?})\]/);
+      if (configMatch) {
+        try {
+          const config = JSON.parse(configMatch[1]);
+          if (config.topology && onTopologyDetected) onTopologyDetected(config.topology);
+          if (config.industry && onIndustryDetected) onIndustryDetected(config.industry);
+          
+          // Clean up the message for the user
+          aiMessage.content = aiMessage.content.replace(/\[SENTINEL_CONFIG:.*?\]/g, '').trim();
+        } catch (e) {
+          console.error("Failed to parse detected config", e);
+        }
+      }
 
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {

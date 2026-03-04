@@ -17,19 +17,30 @@ interface PhysicalManifest {
 
 interface PhysicalManifestUploaderProps {
   industry: IndustryProfile;
+  topology: RobotTopology;
+  onTopologyChange: (topology: RobotTopology) => void;
   onManifestValidated: (manifest: PhysicalManifest) => void;
 }
 
-const PhysicalManifestUploader: React.FC<PhysicalManifestUploaderProps> = ({ industry, onManifestValidated }) => {
+const PhysicalManifestUploader: React.FC<PhysicalManifestUploaderProps> = ({ industry, topology, onTopologyChange, onManifestValidated }) => {
   const [dragActive, setDragActive] = useState(false);
   const [manifest, setManifest] = useState<Partial<PhysicalManifest>>({
-    topology: RobotTopology.QUADCOPTER,
-    mass: 1.5,
+    topology: topology,
+    mass: industry === IndustryProfile.AEROSPACE_LAUNCH ? 150 : 1.5,
     friction: 0.1,
     drag: 0.05,
     actuatorLimits: { min: -100, max: 100, maxRate: 50 },
     safetyMargin: 0.2
   });
+
+  // Sync internal manifest when topology prop changes
+  React.useEffect(() => {
+    setManifest(prev => ({ 
+      ...prev, 
+      topology: topology,
+      mass: industry === IndustryProfile.AEROSPACE_LAUNCH && (prev.mass || 0) < 100 ? 150 : prev.mass
+    }));
+  }, [topology, industry]);
   const [isValid, setIsValid] = useState<boolean | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -43,14 +54,41 @@ const PhysicalManifestUploader: React.FC<PhysicalManifestUploaderProps> = ({ ind
     }
   };
 
-  const validateManifest = (m: Partial<PhysicalManifest>) => {
+  const getRequiredParameters = () => {
+    switch (topology) {
+      case RobotTopology.QUADCOPTER:
+      case RobotTopology.EVTOL:
+        return ["mass", "inertia_tensor", "rotor_constant", "propeller_map"];
+      case RobotTopology.ROCKET:
+        return ["mass", "mass_flow_rate", "tvc_alignment", "aerodynamic_coefficients"];
+      case RobotTopology.ROVER:
+        return ["mass", "tire_friction_model", "chassis_geometry"];
+      case RobotTopology.INDUSTRIAL_ARM:
+        return ["mass", "dh_parameters", "joint_friction_model", "payload_inertia"];
+      default:
+        return ["mass", "topology"];
+    }
+  };
+
+  const validateManifest = (m: Partial<PhysicalManifest>, fileContent?: any) => {
     const errs: string[] = [];
+    
+    // Basic validation
     if (!m.mass || m.mass <= 0) errs.push("Mass must be positive.");
     if (industry === IndustryProfile.AEROSPACE_LAUNCH && (m.mass || 0) < 100) {
       errs.push("Aerospace profile requires minimum mass of 100kg for stability proofs.");
     }
-    if (industry === IndustryProfile.URBAN_AIR_MOBILITY && m.topology !== RobotTopology.EVTOL && m.topology !== RobotTopology.QUADCOPTER) {
+    if (industry === IndustryProfile.URBAN_AIR_MOBILITY && topology !== RobotTopology.EVTOL && topology !== RobotTopology.QUADCOPTER) {
       errs.push("UAM profile requires eVTOL or Quadcopter topology.");
+    }
+
+    // Strict Schema Validation for uploaded files
+    if (fileContent) {
+      const required = getRequiredParameters();
+      const missing = required.filter(key => !fileContent[key] && fileContent[key] !== 0);
+      if (missing.length > 0) {
+        errs.push(`Missing required parameters in file: ${missing.join(", ")}`);
+      }
     }
     
     setErrors(errs);
@@ -67,10 +105,21 @@ const PhysicalManifestUploader: React.FC<PhysicalManifestUploaderProps> = ({ ind
     setDragActive(false);
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      // Simulate parsing
       const file = e.dataTransfer.files[0];
       if (file.name.endsWith('.json') || file.name.endsWith('.yaml')) {
-        validateManifest(manifest);
+        // Simulate parsing the file content
+        // In a real app, we would use JSON.parse or a YAML parser
+        const mockParsedContent: any = {
+          mass: manifest.mass,
+          // Intentionally missing some keys to demonstrate validation
+        };
+        
+        // Add some keys based on topology to simulate a "partially correct" file
+        if (topology === RobotTopology.QUADCOPTER) {
+          mockParsedContent.inertia_tensor = [1, 1, 1];
+        }
+
+        validateManifest(manifest, mockParsedContent);
       } else {
         setErrors(["Unsupported file format. Use .json or .yaml"]);
         setIsValid(false);
@@ -79,7 +128,7 @@ const PhysicalManifestUploader: React.FC<PhysicalManifestUploaderProps> = ({ ind
   };
 
   const getRequirements = () => {
-    switch (manifest.topology) {
+    switch (topology) {
       case RobotTopology.QUADCOPTER:
       case RobotTopology.EVTOL:
         return ["rotor_constant.json", "inertia_tensor.yaml", "propeller_map.csv"];
@@ -115,7 +164,7 @@ const PhysicalManifestUploader: React.FC<PhysicalManifestUploaderProps> = ({ ind
       </div>
 
       <div className="p-3 bg-zinc-900 border border-zinc-800 space-y-2">
-        <p className="text-xs text-zinc-500 uppercase font-bold">Minimum Requirements for {manifest.topology}:</p>
+        <p className="text-xs text-zinc-500 uppercase font-bold">Minimum Requirements for {topology}:</p>
         <div className="flex flex-wrap gap-2">
           {getRequirements().map(req => (
             <span key={req} className="text-[10px] bg-black border border-zinc-800 px-2 py-1 text-zinc-400">{req}</span>
@@ -145,8 +194,8 @@ const PhysicalManifestUploader: React.FC<PhysicalManifestUploaderProps> = ({ ind
         <div className="space-y-1">
           <label className="text-xs text-zinc-500 uppercase font-bold">Topology</label>
           <select 
-            value={manifest.topology}
-            onChange={(e) => setManifest({...manifest, topology: e.target.value as RobotTopology})}
+            value={topology}
+            onChange={(e) => onTopologyChange(e.target.value as RobotTopology)}
             className="w-full bg-zinc-900 border border-zinc-800 text-white text-sm p-2 outline-none focus:border-[#00ff41]"
           >
             {Object.values(RobotTopology).map(t => <option key={t} value={t}>{t}</option>)}

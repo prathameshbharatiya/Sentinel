@@ -24,7 +24,7 @@ import HardwareBridge from './components/HardwareBridge';
 import JointGovernancePanel from './components/JointGovernancePanel';
 import TractionGovernancePanel from './components/TractionGovernancePanel';
 import RocketEnginePanel from './components/RocketEnginePanel';
-import { Terminal, ShieldCheck, Cpu, Loader2 } from 'lucide-react';
+import { Terminal, ShieldCheck, Cpu, Loader2, CheckCircle2, ArrowRight } from 'lucide-react';
 
 const PaperContent = `
 SENTINEL V5.0: A UNIVERSAL NEURAL-SYMBOLIC GOVERNOR FOR ZERO-TRUST ROBOTIC AUTONOMY
@@ -125,8 +125,28 @@ const LandingPage: React.FC<{
   onFinishWizard: () => void,
   onDownloadSDK: (type: 'hpp' | 'cpp') => void,
   industry: IndustryProfile,
-  onSelectIndustry: (industry: IndustryProfile) => void
-}> = ({ onEnter, onFinishWizard, onDownloadSDK, industry, onSelectIndustry }) => {
+  onSelectIndustry: (industry: IndustryProfile) => void,
+  topology: RobotTopology,
+  onTopologyChange: (topology: RobotTopology) => void,
+  isConfiguredViaAssistant: boolean,
+  setIsConfiguredViaAssistant: (val: boolean) => void,
+  setView: (view: 'landing' | 'dashboard' | 'bridge') => void,
+  handleTopologyChange: (t: RobotTopology) => void,
+  handleIndustryChange: (i: IndustryProfile) => void
+}> = ({ 
+  onEnter, 
+  onFinishWizard, 
+  onDownloadSDK, 
+  industry, 
+  onSelectIndustry, 
+  topology, 
+  onTopologyChange,
+  isConfiguredViaAssistant,
+  setIsConfiguredViaAssistant,
+  setView,
+  handleTopologyChange,
+  handleIndustryChange
+}) => {
   const [activeTab, setActiveTab] = useState<'mission' | 'integration' | 'sdk' | 'configuration'>('mission');
   const [showPaper, setShowPaper] = useState(false);
 
@@ -304,9 +324,29 @@ const LandingPage: React.FC<{
                     </ul>
                   </div>
                 </div>
+                
+                {isConfiguredViaAssistant && (
+                  <button 
+                    onClick={() => setView('bridge')}
+                    className="w-full py-4 bg-[#00ff41] text-black font-black uppercase text-sm tracking-widest hover:bg-white transition-all flex items-center justify-center gap-2"
+                  >
+                    Proceed to Hardware Bridge
+                    <ArrowRight size={18} />
+                  </button>
+                )}
               </div>
               <div className="md:col-span-7 h-[450px]">
-                <IntegrationTerminal industry={industry} />
+                <IntegrationTerminal 
+                  industry={industry} 
+                  onTopologyDetected={(t) => {
+                    handleTopologyChange(t);
+                    setIsConfiguredViaAssistant(true);
+                  }}
+                  onIndustryDetected={(i) => {
+                    handleIndustryChange(i);
+                    setIsConfiguredViaAssistant(true);
+                  }}
+                />
               </div>
             </div>
           )}
@@ -316,12 +356,16 @@ const LandingPage: React.FC<{
               <div className="space-y-4">
                 <PhysicalManifestUploader 
                   industry={industry} 
+                  topology={topology}
+                  onTopologyChange={onTopologyChange}
                   onManifestValidated={(m) => console.log("Manifest Validated:", m)} 
                 />
               </div>
               <div className="h-[500px]">
                 <ZeroCodeWizard 
                   industry={industry} 
+                  topology={topology}
+                  onTopologyChange={onTopologyChange}
                   onFinish={onFinishWizard}
                 />
               </div>
@@ -551,6 +595,7 @@ const App: React.FC = () => {
   const [isBooting, setIsBooting] = useState(true);
   const [executionMode, setExecutionMode] = useState<'1kHz' | '10kHz'>('1kHz');
   const [platform, setPlatform] = useState<PlatformType>(PlatformType.X86_SIMULATION);
+  const [isConfiguredViaAssistant, setIsConfiguredViaAssistant] = useState(false);
   
   // New States for Hardware Bridge and Deployment
   const [isHardwareLinked, setIsHardwareLinked] = useState(false);
@@ -785,6 +830,26 @@ const App: React.FC = () => {
     setTelemetry([]);
   };
 
+  const handleIndustryChange = (newIndustry: IndustryProfile) => {
+    setIndustry(newIndustry);
+    
+    // Industry-Aware Topology Auto-Switch
+    let newTopology = topology;
+    if (newIndustry === IndustryProfile.AEROSPACE_LAUNCH) {
+      newTopology = RobotTopology.ROCKET;
+    } else if (newIndustry === IndustryProfile.URBAN_AIR_MOBILITY) {
+      newTopology = RobotTopology.EVTOL;
+    } else if (newIndustry === IndustryProfile.FLEET_LOGISTICS) {
+      newTopology = RobotTopology.ROVER;
+    } else if (newIndustry === IndustryProfile.GENERAL_ROBOTICS) {
+      newTopology = RobotTopology.QUADCOPTER;
+    }
+    
+    if (newTopology !== topology) {
+      handleTopologyChange(newTopology);
+    }
+  };
+
   const handleDownloadSDK = async (type: 'hpp' | 'cpp') => {
     let content = "";
     try {
@@ -842,7 +907,14 @@ const App: React.FC = () => {
         onFinishWizard={() => setView('bridge')}
         onDownloadSDK={handleDownloadSDK} 
         industry={industry}
-        onSelectIndustry={setIndustry}
+        onSelectIndustry={handleIndustryChange}
+        topology={topology}
+        onTopologyChange={handleTopologyChange}
+        isConfiguredViaAssistant={isConfiguredViaAssistant}
+        setIsConfiguredViaAssistant={setIsConfiguredViaAssistant}
+        setView={setView}
+        handleTopologyChange={handleTopologyChange}
+        handleIndustryChange={handleIndustryChange}
       />
     );
   }
@@ -850,26 +922,45 @@ const App: React.FC = () => {
   if (view === 'bridge') {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-6">
-        <div className="max-w-2xl w-full h-[500px]">
-          <HardwareBridge 
-            isConnected={isHardwareLinked} 
-            onConnect={() => setIsHardwareLinked(true)} 
-          />
-          {isHardwareLinked && (
-            <div className="mt-8 flex flex-col items-center gap-4">
-              {preflightStatus && !preflightStatus.isReady && (
-                <div className="bg-rose-900/20 border border-rose-500 p-3 text-rose-500 text-[10px] uppercase font-bold animate-pulse">
-                  Preflight_Check_Failed: System_Inhibited
-                </div>
-              )}
-              <button 
-                onClick={handleDeployShim}
-                className="px-12 py-4 bg-white text-black font-black uppercase tracking-widest hover:bg-[#00ff41] transition-all transform hover:-translate-y-1 disabled:opacity-50"
-              >
-                Deploy Safety Shim
-              </button>
+        <div className="max-w-2xl w-full flex flex-col gap-8">
+          {isConfiguredViaAssistant && (
+            <div className="bg-[#00ff41]/5 border border-[#00ff41]/30 p-6 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="flex items-center gap-3 text-[#00ff41]">
+                <CheckCircle2 size={24} />
+                <h2 className="text-xl font-black uppercase tracking-tight">Configuration_Locked</h2>
+              </div>
+              <p className="text-sm text-zinc-400 uppercase leading-relaxed">
+                Sentinel Integration Engineer has verified your <span className="text-white">{topology}</span> setup for <span className="text-white">{industry}</span>. 
+                Zero-Code Wizard and Manifest Uploader have been bypassed.
+              </p>
+              <div className="flex items-center gap-4 pt-2">
+                <div className="px-3 py-1 bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-500 uppercase font-bold">Topology: {topology}</div>
+                <div className="px-3 py-1 bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-500 uppercase font-bold">Industry: {industry}</div>
+              </div>
             </div>
           )}
+          
+          <div className="w-full h-[500px]">
+            <HardwareBridge 
+              isConnected={isHardwareLinked} 
+              onConnect={() => setIsHardwareLinked(true)} 
+            />
+            {isHardwareLinked && (
+              <div className="mt-8 flex flex-col items-center gap-4">
+                {preflightStatus && !preflightStatus.isReady && (
+                  <div className="bg-rose-900/20 border border-rose-500 p-3 text-rose-500 text-[10px] uppercase font-bold animate-pulse">
+                    Preflight_Check_Failed: System_Inhibited
+                  </div>
+                )}
+                <button 
+                  onClick={handleDeployShim}
+                  className="px-12 py-4 bg-white text-black font-black uppercase tracking-widest hover:bg-[#00ff41] transition-all transform hover:-translate-y-1 disabled:opacity-50"
+                >
+                  Deploy Safety Shim
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -1008,7 +1099,9 @@ const App: React.FC = () => {
             <div className="p-3 border border-[#00ff41]/20 bg-[#00ff41]/5 rounded-sm shrink-0">
                <div className="flex items-center gap-2 mb-1">
                  <ShieldAlert size={14} className="text-[#00ff41]" />
-                 <span className="text-[10px] text-[#00ff41] font-black uppercase tracking-widest">Air-Gapped Kernel</span>
+                 <span className="text-[10px] text-[#00ff41] font-black uppercase tracking-widest">
+                   {industry === IndustryProfile.AEROSPACE_LAUNCH ? "Air-Gapped Flight Kernel" : "Air-Gapped Safety Kernel"}
+                 </span>
                </div>
                <p className="text-[9px] text-zinc-500 leading-tight uppercase">
                  The Safety Kernel runs locally on the edge. AI is utilized only for natural language reconciliation and forensic audit.
@@ -1026,7 +1119,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="shrink-0 h-64">
-              {health && <FormalVerificationPanel status={health.verification} />}
+              {health && <FormalVerificationPanel status={health.verification} industry={industry} />}
             </div>
 
             <div className="shrink-0 h-64">
