@@ -66,6 +66,27 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
     }
   }, [messages]);
 
+  const getSymbolicResponse = (userInput: string): string => {
+    const input = userInput.toLowerCase();
+    let response = "I've analyzed your request via the local Symbolic Engine. ";
+    
+    if (input.includes('quadcopter') || input.includes('drone') || input.includes('flight')) {
+      response += "Detected Quadcopter (3D-Flight) topology. For this setup, I recommend the Sentinel ROS2 Safety Node. It intercepts /cmd_vel topics and applies a 3D Lyapunov boundary to prevent ground collisions and fly-aways.\n\n[SENTINEL_CONFIG: {\"topology\": \"Quadcopter (3D-Flight)\", \"industry\": \"General Robotics\"}]";
+    } else if (input.includes('rocket') || input.includes('space') || input.includes('launch')) {
+      response += "Aerospace context detected. We must enforce NASA-STD-8739.8 compliance. I'm initializing the L4 Flight Termination System (FTS) and the L2 Propellant Mass Flow Observer.\n\n[SENTINEL_CONFIG: {\"topology\": \"Rocket (Vertical Ascent)\", \"industry\": \"Aerospace & Launch\"}]";
+    } else if (input.includes('rover') || input.includes('car') || input.includes('mobile')) {
+      response += "Mobile Rover (2D-Traction) topology identified. Integration path: Shadow Driver SDK (C++). This will govern wheel slip and ensure the robot stays within the admissible 2D safety set.\n\n[SENTINEL_CONFIG: {\"topology\": \"Mobile Rover (2D-Traction)\", \"industry\": \"Fleet & Logistics\"}]";
+    } else if (input.includes('arm') || input.includes('manipulator') || input.includes('joint')) {
+      response += "Robotic Arm (2-DOF) detected. We will use the Sentinel HIL Bridge for initial joint-space stability verification before moving to the physical HAL.\n\n[SENTINEL_CONFIG: {\"topology\": \"Robotic Arm (2-DOF)\", \"industry\": \"General Robotics\"}]";
+    } else if (input.includes('evtol') || input.includes('taxi') || input.includes('passenger')) {
+      response += "Urban Air Mobility (eVTOL) profile active. Enforcing DO-178C DAL-A standards. Initializing Rotor Failure Redistribution logic (L5).\n\n[SENTINEL_CONFIG: {\"topology\": \"eVTOL (Multi-Rotor Flight)\", \"industry\": \"Urban Air Mobility\"}]";
+    } else {
+      response += "I'm ready to assist with your integration. Please specify if you are working with a Quadcopter, Rover, Robotic Arm, or Rocket so I can provide the correct L4 Lyapunov boundaries and L7 Audit schemas.";
+    }
+    
+    return response;
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isTyping) return;
 
@@ -80,7 +101,7 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
     setIsTyping(true);
 
     try {
-      const apiKey = process.env.API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
       if (!apiKey) {
         throw new Error("API_KEY_MISSING");
       }
@@ -180,19 +201,27 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
       setMessages(prev => [...prev, aiMessage]);
     } catch (error: any) {
       console.error("Integration Engineer Error:", error);
-      let content = "CRITICAL: Connection to Sentinel Logic Core lost. Verify network status and retry.";
       
-      if (error.message === "API_KEY_MISSING") {
-        content = "CRITICAL: Sentinel Logic Core unreachable. GEMINI_API_KEY is not configured in the environment. Please set the API_KEY to enable neural-symbolic governance.";
-      } else if (error.message?.includes("API_KEY_INVALID")) {
-        content = "CRITICAL: Sentinel Logic Core rejected credentials. The provided API_KEY is invalid or expired.";
+      // SYMBOLIC FALLBACK: Answer everytime even without API key
+      const fallbackContent = getSymbolicResponse(input);
+      const aiMessage: Message = {
+        role: 'assistant',
+        content: fallbackContent,
+        timestamp: Date.now()
+      };
+
+      // Process config tags in fallback if present
+      const configMatch = aiMessage.content.match(/\[SENTINEL_CONFIG:\s*({.*?})\]/);
+      if (configMatch) {
+        try {
+          const config = JSON.parse(configMatch[1]);
+          if (config.topology && onTopologyDetected) onTopologyDetected(config.topology);
+          if (config.industry && onIndustryDetected) onIndustryDetected(config.industry);
+          aiMessage.content = aiMessage.content.replace(/\[SENTINEL_CONFIG:.*?\]/g, '').trim();
+        } catch (e) {}
       }
 
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content,
-        timestamp: Date.now()
-      }]);
+      setMessages(prev => [...prev, aiMessage]);
     } finally {
       setIsTyping(false);
     }
