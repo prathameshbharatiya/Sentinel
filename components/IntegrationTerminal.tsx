@@ -67,31 +67,57 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
     }
   }, [messages]);
 
-  const getSymbolicResponse = (userInput: string): string => {
+  const [detectedTopology, setDetectedTopology] = useState<string | null>(null);
+  const [detectedIndustry, setDetectedIndustry] = useState<string | null>(null);
+
+  const getSymbolicResponse = (userInput: string, currentCount: number): string => {
     const input = userInput.toLowerCase();
     
-    // If it's the first response, don't give the config yet unless they were very specific
-    if (interactionCount < 2 && !input.includes('rocket') && !input.includes('quadcopter') && !input.includes('rover')) {
-      return "Understood. I'm processing those details. Could you also clarify your specific hardware constraints and any safety certifications you need to comply with? (e.g. ISO 26262, DO-178C)";
+    // Keyword detection
+    let newTopology = detectedTopology;
+    let newIndustry = detectedIndustry;
+
+    if (input.includes('quadcopter') || input.includes('drone') || input.includes('multi rotor') || input.includes('multirotor') || input.includes('milti rotor') || input.includes('multi-rotor')) {
+      newTopology = "Quadcopter (3D-Flight)";
+      newIndustry = "General Robotics";
+    } else if (input.includes('rocket') || input.includes('launch vehicle') || input.includes('ballistic')) {
+      newTopology = "Rocket (Vertical Ascent)";
+      newIndustry = "Aerospace & Launch";
+    } else if (input.includes('rover') || input.includes('car') || input.includes('mobile robot')) {
+      newTopology = "Mobile Rover (2D-Traction)";
+      newIndustry = "Fleet & Logistics";
+    } else if (input.includes('arm') || input.includes('manipulator') || input.includes('joint')) {
+      newTopology = "Robotic Arm (2-DOF)";
+      newIndustry = "General Robotics";
+    } else if (input.includes('evtol') || input.includes('air taxi') || input.includes('passenger drone')) {
+      newTopology = "eVTOL (Multi-Rotor Flight)";
+      newIndustry = "Urban Air Mobility";
     }
 
-    let response = "I've analyzed your integration profile via the local Symbolic Engine. ";
-    
-    if (input.includes('quadcopter') || input.includes('drone') || (input.includes('flight') && !input.includes('rocket'))) {
-      response += "Detected Quadcopter (3D-Flight) topology. For this setup, I recommend the Sentinel ROS2 Safety Node. It intercepts /cmd_vel topics and applies a 3D Lyapunov boundary to prevent ground collisions and fly-aways.\n\n[SENTINEL_CONFIG: {\"topology\": \"Quadcopter (3D-Flight)\", \"industry\": \"General Robotics\"}]";
-    } else if (input.includes('rocket') || input.includes('launch vehicle') || input.includes('ballistic')) {
-      response += "Aerospace context detected. We must enforce NASA-STD-8739.8 compliance. I'm initializing the L4 Flight Termination System (FTS) and the L2 Propellant Mass Flow Observer.\n\n[SENTINEL_CONFIG: {\"topology\": \"Rocket (Vertical Ascent)\", \"industry\": \"Aerospace & Launch\"}]";
-    } else if (input.includes('rover') || input.includes('car') || input.includes('mobile robot')) {
-      response += "Mobile Rover (2D-Traction) topology identified. Integration path: Shadow Driver SDK (C++). This will govern wheel slip and ensure the robot stays within the admissible 2D safety set.\n\n[SENTINEL_CONFIG: {\"topology\": \"Mobile Rover (2D-Traction)\", \"industry\": \"Fleet & Logistics\"}]";
-    } else if (input.includes('arm') || input.includes('manipulator') || input.includes('joint')) {
-      response += "Robotic Arm (2-DOF) detected. We will use the Sentinel HIL Bridge for initial joint-space stability verification before moving to the physical HAL.\n\n[SENTINEL_CONFIG: {\"topology\": \"Robotic Arm (2-DOF)\", \"industry\": \"General Robotics\"}]";
-    } else if (input.includes('evtol') || input.includes('air taxi') || input.includes('passenger drone')) {
-      response += "Urban Air Mobility (eVTOL) profile active. Enforcing DO-178C DAL-A standards. Initializing Rotor Failure Redistribution logic (L5).\n\n[SENTINEL_CONFIG: {\"topology\": \"eVTOL (Multi-Rotor Flight)\", \"industry\": \"Urban Air Mobility\"}]";
-    } else {
-      response += "I'm still gathering data. To provide the correct L4 Lyapunov boundaries, I need to be certain about your topology. Are we looking at a multi-rotor, a ground vehicle, or a fixed-base manipulator?";
+    // If we have a topology but it's very early, ask one follow up
+    if (newTopology && currentCount < 1) {
+      return `Understood. I've noted the ${newTopology} topology. To finalize the L4 Lyapunov boundaries, could you clarify your specific hardware constraints or any safety certifications (e.g. ISO 26262, DO-178C) you need to comply with?`;
     }
-    
-    return response;
+
+    // If we have a topology and enough interaction, give the config
+    if (newTopology) {
+      let response = `I've analyzed your integration profile via the local Symbolic Engine. Detected ${newTopology} topology. `;
+      
+      if (newTopology === "Quadcopter (3D-Flight)") {
+        response += "For this setup, I recommend the Sentinel ROS2 Safety Node. It intercepts /cmd_vel topics and applies a 3D Lyapunov boundary to prevent ground collisions and fly-aways.\n\n[SENTINEL_CONFIG: {\"topology\": \"Quadcopter (3D-Flight)\", \"industry\": \"General Robotics\"}]";
+      } else if (newTopology === "Rocket (Vertical Ascent)") {
+        response += "Aerospace context detected. We must enforce NASA-STD-8739.8 compliance. I'm initializing the L4 Flight Termination System (FTS) and the L2 Propellant Mass Flow Observer.\n\n[SENTINEL_CONFIG: {\"topology\": \"Rocket (Vertical Ascent)\", \"industry\": \"Aerospace & Launch\"}]";
+      } else if (newTopology === "Mobile Rover (2D-Traction)") {
+        response += "Mobile Rover (2D-Traction) topology identified. Integration path: Shadow Driver SDK (C++). This will govern wheel slip and ensure the robot stays within the admissible 2D safety set.\n\n[SENTINEL_CONFIG: {\"topology\": \"Mobile Rover (2D-Traction)\", \"industry\": \"Fleet & Logistics\"}]";
+      } else if (newTopology === "Robotic Arm (2-DOF)") {
+        response += "Robotic Arm (2-DOF) detected. We will use the Sentinel HIL Bridge for initial joint-space stability verification before moving to the physical HAL.\n\n[SENTINEL_CONFIG: {\"topology\": \"Robotic Arm (2-DOF)\", \"industry\": \"General Robotics\"}]";
+      } else if (newTopology === "eVTOL (Multi-Rotor Flight)") {
+        response += "Urban Air Mobility (eVTOL) profile active. Enforcing DO-178C DAL-A standards. Initializing Rotor Failure Redistribution logic (L5).\n\n[SENTINEL_CONFIG: {\"topology\": \"eVTOL (Multi-Rotor Flight)\", \"industry\": \"Urban Air Mobility\"}]";
+      }
+      return response;
+    }
+
+    return "I'm still gathering data. To provide the correct L4 Lyapunov boundaries, I need to be certain about your topology. Are we looking at a multi-rotor, a ground vehicle, or a fixed-base manipulator?";
   };
 
   const handleSend = async () => {
@@ -232,14 +258,14 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
       console.error("Integration Engineer Error:", error);
       
       // SYMBOLIC FALLBACK: Answer everytime even without API key
-      const fallbackContent = getSymbolicResponse(input);
+      const fallbackContent = getSymbolicResponse(input, interactionCount);
       const aiMessage: Message = {
         role: 'assistant',
         content: fallbackContent,
         timestamp: Date.now()
       };
 
-      // Process config tags in fallback if present
+      // Configuration Detection in Fallback
       const configMatch = aiMessage.content.match(/\[SENTINEL_CONFIG:\s*({.*?})\]/);
       if (configMatch) {
         try {
@@ -248,6 +274,25 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
           if (config.industry && onIndustryDetected) onIndustryDetected(config.industry);
           aiMessage.content = aiMessage.content.replace(/\[SENTINEL_CONFIG:.*?\]/g, '').trim();
         } catch (e) {}
+      } else {
+        // If no config yet, try to extract topology for state tracking
+        const inputLower = input.toLowerCase();
+        if (inputLower.includes('quadcopter') || inputLower.includes('drone') || inputLower.includes('multi rotor') || inputLower.includes('multirotor') || inputLower.includes('milti rotor') || inputLower.includes('multi-rotor')) {
+          setDetectedTopology("Quadcopter (3D-Flight)");
+          setDetectedIndustry("General Robotics");
+        } else if (inputLower.includes('rocket') || inputLower.includes('launch vehicle') || inputLower.includes('ballistic')) {
+          setDetectedTopology("Rocket (Vertical Ascent)");
+          setDetectedIndustry("Aerospace & Launch");
+        } else if (inputLower.includes('rover') || inputLower.includes('car') || inputLower.includes('mobile robot')) {
+          setDetectedTopology("Mobile Rover (2D-Traction)");
+          setDetectedIndustry("Fleet & Logistics");
+        } else if (inputLower.includes('arm') || inputLower.includes('manipulator') || inputLower.includes('joint')) {
+          setDetectedTopology("Robotic Arm (2-DOF)");
+          setDetectedIndustry("General Robotics");
+        } else if (inputLower.includes('evtol') || inputLower.includes('air taxi') || inputLower.includes('passenger drone')) {
+          setDetectedTopology("eVTOL (Multi-Rotor Flight)");
+          setDetectedIndustry("Urban Air Mobility");
+        }
       }
 
       setMessages(prev => [...prev, aiMessage]);
