@@ -58,6 +58,7 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
   }, [industry]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [interactionCount, setInteractionCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -68,20 +69,26 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
 
   const getSymbolicResponse = (userInput: string): string => {
     const input = userInput.toLowerCase();
-    let response = "I've analyzed your request via the local Symbolic Engine. ";
     
-    if (input.includes('quadcopter') || input.includes('drone') || input.includes('flight')) {
+    // If it's the first response, don't give the config yet unless they were very specific
+    if (interactionCount < 2 && !input.includes('rocket') && !input.includes('quadcopter') && !input.includes('rover')) {
+      return "Understood. I'm processing those details. Could you also clarify your specific hardware constraints and any safety certifications you need to comply with? (e.g. ISO 26262, DO-178C)";
+    }
+
+    let response = "I've analyzed your integration profile via the local Symbolic Engine. ";
+    
+    if (input.includes('quadcopter') || input.includes('drone') || (input.includes('flight') && !input.includes('rocket'))) {
       response += "Detected Quadcopter (3D-Flight) topology. For this setup, I recommend the Sentinel ROS2 Safety Node. It intercepts /cmd_vel topics and applies a 3D Lyapunov boundary to prevent ground collisions and fly-aways.\n\n[SENTINEL_CONFIG: {\"topology\": \"Quadcopter (3D-Flight)\", \"industry\": \"General Robotics\"}]";
-    } else if (input.includes('rocket') || input.includes('space') || input.includes('launch')) {
+    } else if (input.includes('rocket') || input.includes('launch vehicle') || input.includes('ballistic')) {
       response += "Aerospace context detected. We must enforce NASA-STD-8739.8 compliance. I'm initializing the L4 Flight Termination System (FTS) and the L2 Propellant Mass Flow Observer.\n\n[SENTINEL_CONFIG: {\"topology\": \"Rocket (Vertical Ascent)\", \"industry\": \"Aerospace & Launch\"}]";
-    } else if (input.includes('rover') || input.includes('car') || input.includes('mobile')) {
+    } else if (input.includes('rover') || input.includes('car') || input.includes('mobile robot')) {
       response += "Mobile Rover (2D-Traction) topology identified. Integration path: Shadow Driver SDK (C++). This will govern wheel slip and ensure the robot stays within the admissible 2D safety set.\n\n[SENTINEL_CONFIG: {\"topology\": \"Mobile Rover (2D-Traction)\", \"industry\": \"Fleet & Logistics\"}]";
     } else if (input.includes('arm') || input.includes('manipulator') || input.includes('joint')) {
       response += "Robotic Arm (2-DOF) detected. We will use the Sentinel HIL Bridge for initial joint-space stability verification before moving to the physical HAL.\n\n[SENTINEL_CONFIG: {\"topology\": \"Robotic Arm (2-DOF)\", \"industry\": \"General Robotics\"}]";
-    } else if (input.includes('evtol') || input.includes('taxi') || input.includes('passenger')) {
+    } else if (input.includes('evtol') || input.includes('air taxi') || input.includes('passenger drone')) {
       response += "Urban Air Mobility (eVTOL) profile active. Enforcing DO-178C DAL-A standards. Initializing Rotor Failure Redistribution logic (L5).\n\n[SENTINEL_CONFIG: {\"topology\": \"eVTOL (Multi-Rotor Flight)\", \"industry\": \"Urban Air Mobility\"}]";
     } else {
-      response += "I'm ready to assist with your integration. Please specify if you are working with a Quadcopter, Rover, Robotic Arm, or Rocket so I can provide the correct L4 Lyapunov boundaries and L7 Audit schemas.";
+      response += "I'm still gathering data. To provide the correct L4 Lyapunov boundaries, I need to be certain about your topology. Are we looking at a multi-rotor, a ground vehicle, or a fixed-base manipulator?";
     }
     
     return response;
@@ -99,6 +106,7 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsTyping(true);
+    setInteractionCount(prev => prev + 1);
 
     try {
       const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
@@ -132,14 +140,35 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
         - Urban Air Mobility: DO-178C DAL-A, rotor failure redistribution, emergency landing zones.
         - Fleet & Logistics: Byzantine Consensus, PTP sync, ROS2/DDS, multi-agent collision avoidance.
 
-        The user has just provided answers to your initial four questions (or is in the process of doing so).
+        The user is in the process of answering your initial four questions. 
+        
+        QUESTIONS ASKED:
+        ${industry === IndustryProfile.AEROSPACE_LAUNCH ? `
+        1. What is your launch vehicle configuration?
+        2. Which flight computer architecture are you using?
+        3. What is your telemetry link protocol?
+        4. Are you integrating with a Range Safety system?` : industry === IndustryProfile.URBAN_AIR_MOBILITY ? `
+        1. What is your rotor configuration?
+        2. Which flight controller stack are you using?
+        3. How do you handle emergency landing zone calculations?
+        4. What is your primary compute platform?` : industry === IndustryProfile.FLEET_LOGISTICS ? `
+        1. How many nodes are in your fleet?
+        2. What is your network topology?
+        3. Which communication middleware are you using?
+        4. What is your required clock synchronization precision?` : `
+        1. What is your robot?
+        2. Which flight controller stack are you using?
+        3. How does your AI currently send commands?
+        4. What hardware are you running on?`}
+
+        CRITICAL RULE:
+        - DO NOT provide the [SENTINEL_CONFIG: ...] tag until the user has provided enough detail for ALL FOUR questions.
+        - If the user only answers some questions, acknowledge them and ask for the remaining ones.
+        - Be professional, technical, and thorough.
         
         DETECTION RULE:
-        If you have enough information to determine the robot's topology or industry, you MUST include a hidden tag at the end of your response in this EXACT format:
-        [SENTINEL_CONFIG: {"topology": "Quadcopter (3D-Flight)", "industry": "Urban Air Mobility"}]
-        
-        Available Topologies: "Linear Actuator (1-DOF)", "Quadcopter (3D-Flight)", "Mobile Rover (2D-Traction)", "Robotic Arm (2-DOF)", "eVTOL (Multi-Rotor Flight)", "Rocket (Vertical Ascent)"
-        Available Industries: "Aerospace & Launch", "Urban Air Mobility", "Fleet & Logistics", "General Robotics"
+        Once (and ONLY once) you have all the information, include the tag:
+        [SENTINEL_CONFIG: {"topology": "...", "industry": "..."}]
 
         Rules you never break:
         - Never give generic answers. Every response is specific to their robot and their setup.
