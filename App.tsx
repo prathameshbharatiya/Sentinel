@@ -161,8 +161,8 @@ const LandingPage: React.FC<{
         <div className="absolute top-0 right-0 p-4 text-[11px] opacity-20 uppercase tracking-[0.3em]">Build_Auth_0xEE92</div>
         
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-8">
-          <div className="flex flex-col items-center md:items-start text-center md:text-left">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12 border-b border-zinc-800 pb-12">
+          <div className="lg:col-span-4 flex flex-col items-center lg:items-start text-center lg:text-left">
             <div className="w-16 h-16 border-2 border-[#00ff41] flex items-center justify-center mb-4 glow-core shadow-[0_0_20px_rgba(0,255,65,0.2)]">
               <div className="w-8 h-8 bg-[#00ff41] animate-pulse"></div>
             </div>
@@ -170,36 +170,37 @@ const LandingPage: React.FC<{
             <p className="text-[#00ff41] text-xs tracking-[0.5em] uppercase opacity-60">Physical Autonomy Reliability Layer</p>
           </div>
           
-          <div className="flex flex-col items-end gap-4">
-            <div className="flex gap-4 items-center">
+          <div className="lg:col-span-8 flex flex-col gap-6">
+            <div className="flex flex-wrap items-center justify-center lg:justify-end gap-4">
               <button 
                 onClick={onOpenHardwareTest}
-                className="px-4 py-2 bg-amber/10 border border-amber/30 text-amber font-black uppercase text-[10px] tracking-widest hover:bg-amber hover:text-black transition-all flex items-center gap-2"
+                className="px-4 py-2 bg-[#00ff41]/10 border border-[#00ff41]/30 text-[#00ff41] font-black uppercase text-[10px] tracking-widest hover:bg-[#00ff41] hover:text-black transition-all flex items-center gap-2 whitespace-nowrap shadow-[0_0_10px_rgba(0,255,65,0.1)] hover:shadow-[0_0_15px_rgba(0,255,65,0.3)]"
               >
                 <Zap size={12} />
                 Hardware Test Mode
               </button>
-              <div className="flex gap-4 border border-zinc-800 p-1 bg-black">
+              
+              <div className="flex border border-zinc-800 p-1 bg-black">
                 {(['mission', 'integration', 'configuration', 'sdk'] as const).map(tab => (
-                <button 
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-6 py-2 text-xs font-bold uppercase transition-all ${activeTab === tab ? 'bg-[#00ff41] text-black' : 'text-zinc-500 hover:text-white'}`}
-                >
-                  {tab}
-                </button>
-              ))}
+                  <button 
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-4 py-2 text-[10px] font-bold uppercase transition-all whitespace-nowrap ${activeTab === tab ? 'bg-[#00ff41] text-black' : 'text-zinc-500 hover:text-white'}`}
+                  >
+                    {tab}
+                  </button>
+                ))}
               </div>
             </div>
-          </div>
-          <div className="flex flex-col items-end">
-              <span className="text-[10px] text-zinc-500 uppercase mb-1 tracking-widest">Select_Industry_Profile</span>
-              <div className="flex gap-2">
+
+            <div className="flex flex-col items-center lg:items-end border-t border-zinc-800/50 pt-4">
+              <span className="text-[10px] text-zinc-500 uppercase mb-3 tracking-widest">Select_Industry_Profile</span>
+              <div className="flex flex-wrap justify-center lg:justify-end gap-2">
                 {Object.values(IndustryProfile).map(p => (
                   <button
                     key={p}
                     onClick={() => onSelectIndustry(p)}
-                    className={`px-3 py-1 text-[10px] font-bold uppercase border transition-all ${industry === p ? 'border-[#00ff41] text-[#00ff41] bg-[#00ff41]/5' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase border transition-all whitespace-nowrap ${industry === p ? 'border-[#00ff41] text-[#00ff41] bg-[#00ff41]/5' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}
                   >
                     {p.replace(/ /g, '_')}
                   </button>
@@ -207,6 +208,7 @@ const LandingPage: React.FC<{
               </div>
             </div>
           </div>
+        </div>
 
         {/* Tab Content */}
         <div className="min-h-[420px]">
