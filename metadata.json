@@ -1,5 +1,5 @@
 {
   "name": "Sentinel - Physical Autonomy Reliability Layer",
-  "description": "A high-fidelity real-time observability runtime for robotics that detects physical parameter drift, estimates model uncertainty, and predicts instability through deterministic physics observers and residual learning engines.",
+  "description": "A high-fidelity real-time observability runtime for robotics featuring the Sentinel Integration Engineer — a 12-step automated shim factory that bridges hardware to the Sentinel OS governance layer.",
   "requestFramePermissions": []
 }

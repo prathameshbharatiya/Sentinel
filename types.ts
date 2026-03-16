@@ -339,6 +339,50 @@ export interface PreflightStatus {
   lastCheckTimestamp: number;
 }
 
+export enum HardwarePlatform {
+  ROBOTIC_ARM = 'ROBOTIC_ARM',
+  AUTONOMOUS_DRONE = 'AUTONOMOUS_DRONE'
+}
+
+export interface MvkConfig {
+  platform: HardwarePlatform;
+  controllerType?: string;
+  jointCount?: number;
+  armModel?: string;
+  flightController?: string;
+  rotorConfig?: string;
+  companionComputer?: string;
+  limits: {
+    maxVelPct?: number;
+    maxTorquePct?: number;
+    singularityBuffer?: number;
+    confidenceThreshold: number;
+    maxAltitude?: number;
+    maxVelocity?: number;
+    geofenceRadius?: number;
+  };
+}
+
+export interface SafetyChecklist {
+  estopTested: boolean;
+  operatorPresent: boolean;
+  areaClear: boolean;
+  rosRunning: boolean;
+  mvkNotRunning: boolean;
+  // Arm specific
+  armSecured?: boolean;
+  jointLimitsVerified?: boolean;
+  torqueLimitsConfigured?: boolean;
+  effectorSafe?: boolean;
+  // Drone specific
+  droneTethered?: boolean;
+  fcFailsafeConfigured?: boolean;
+  geofenceSet?: boolean;
+  safetyPilotReady?: boolean;
+  propsBalanced?: boolean;
+  batteryCharged?: boolean;
+}
+
 export interface RobotHealth {
   modelConfidence: number;
   driftScore: number;

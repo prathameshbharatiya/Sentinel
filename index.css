@@ -1,17 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Rajdhani", sans-serif;
+  
+  --color-void: #020202;
+  --color-amber: #FFB800;
+  --color-red-dim: rgba(220, 38, 38, 0.1);
+  --color-bg-raised: #0a0a0a;
+  --color-border: #262626;
+}
+
 :root {
   --background: #020202;
   --foreground: #e5e7eb;
-  --accent: #00ff41;
-}
-
-body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
-}
-
-.mono {
-  font-family: var(--font-mono);
+  --accent: #FFB800;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -29,4 +34,12 @@ body {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #404040;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0) }
+  20%     { transform: translateX(-6px) }
+  40%     { transform: translateX(6px) }
+  60%     { transform: translateX(-4px) }
+  80%     { transform: translateX(4px) }
 }

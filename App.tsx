@@ -24,7 +24,8 @@ import HardwareBridge from './components/HardwareBridge';
 import JointGovernancePanel from './components/JointGovernancePanel';
 import TractionGovernancePanel from './components/TractionGovernancePanel';
 import RocketEnginePanel from './components/RocketEnginePanel';
-import { Terminal, ShieldCheck, Cpu, Loader2, CheckCircle2, ArrowRight } from 'lucide-react';
+import HardwareTestMode from './components/HardwareTestMode';
+import { Terminal, ShieldCheck, Cpu, Loader2, CheckCircle2, ArrowRight, Zap } from 'lucide-react';
 
 const PaperContent = `
 SENTINEL V5.0: A UNIVERSAL NEURAL-SYMBOLIC GOVERNOR FOR ZERO-TRUST ROBOTIC AUTONOMY
@@ -132,7 +133,8 @@ const LandingPage: React.FC<{
   setIsConfiguredViaAssistant: (val: boolean) => void,
   setView: (view: 'landing' | 'dashboard' | 'bridge') => void,
   handleTopologyChange: (t: RobotTopology) => void,
-  handleIndustryChange: (i: IndustryProfile) => void
+  handleIndustryChange: (i: IndustryProfile) => void,
+  onOpenHardwareTest: () => void
 }> = ({ 
   onEnter, 
   onFinishWizard, 
@@ -145,7 +147,8 @@ const LandingPage: React.FC<{
   setIsConfiguredViaAssistant,
   setView,
   handleTopologyChange,
-  handleIndustryChange
+  handleIndustryChange,
+  onOpenHardwareTest
 }) => {
   const [activeTab, setActiveTab] = useState<'mission' | 'integration' | 'sdk' | 'configuration'>('mission');
   const [showPaper, setShowPaper] = useState(false);
@@ -168,8 +171,16 @@ const LandingPage: React.FC<{
           </div>
           
           <div className="flex flex-col items-end gap-4">
-            <div className="flex gap-4 border border-zinc-800 p-1 bg-black">
-              {(['mission', 'integration', 'configuration', 'sdk'] as const).map(tab => (
+            <div className="flex gap-4 items-center">
+              <button 
+                onClick={onOpenHardwareTest}
+                className="px-4 py-2 bg-amber/10 border border-amber/30 text-amber font-black uppercase text-[10px] tracking-widest hover:bg-amber hover:text-black transition-all flex items-center gap-2"
+              >
+                <Zap size={12} />
+                Hardware Test Mode
+              </button>
+              <div className="flex gap-4 border border-zinc-800 p-1 bg-black">
+                {(['mission', 'integration', 'configuration', 'sdk'] as const).map(tab => (
                 <button 
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -178,8 +189,10 @@ const LandingPage: React.FC<{
                   {tab}
                 </button>
               ))}
+              </div>
             </div>
-            <div className="flex flex-col items-end">
+          </div>
+          <div className="flex flex-col items-end">
               <span className="text-[10px] text-zinc-500 uppercase mb-1 tracking-widest">Select_Industry_Profile</span>
               <div className="flex gap-2">
                 {Object.values(IndustryProfile).map(p => (
@@ -194,7 +207,6 @@ const LandingPage: React.FC<{
               </div>
             </div>
           </div>
-        </div>
 
         {/* Tab Content */}
         <div className="min-h-[420px]">
@@ -627,6 +639,7 @@ const App: React.FC = () => {
   const [preflightStatus, setPreflightStatus] = useState<PreflightStatus | null>(null);
   const [deploymentLogs, setDeploymentLogs] = useState<string[]>([]);
   const [isDeploying, setIsDeploying] = useState(false);
+  const [isHardwareTestOpen, setIsHardwareTestOpen] = useState(false);
 
   const simStateRef = useRef<RobotState>({
     position: [0, 0, 0],
@@ -938,20 +951,34 @@ const App: React.FC = () => {
 
   if (view === 'onboarding') {
     return (
-      <LandingPage 
-        onEnter={handleEnter} 
-        onFinishWizard={() => setView('bridge')}
-        onDownloadSDK={handleDownloadSDK} 
-        industry={industry}
-        onSelectIndustry={handleIndustryChange}
-        topology={topology}
-        onTopologyChange={handleTopologyChange}
-        isConfiguredViaAssistant={isConfiguredViaAssistant}
-        setIsConfiguredViaAssistant={setIsConfiguredViaAssistant}
-        setView={setView}
-        handleTopologyChange={handleTopologyChange}
-        handleIndustryChange={handleIndustryChange}
-      />
+      <>
+        <LandingPage 
+          onEnter={handleEnter} 
+          onFinishWizard={() => setView('bridge')}
+          onDownloadSDK={handleDownloadSDK} 
+          industry={industry}
+          onSelectIndustry={handleIndustryChange}
+          topology={topology}
+          onTopologyChange={handleTopologyChange}
+          isConfiguredViaAssistant={isConfiguredViaAssistant}
+          setIsConfiguredViaAssistant={setIsConfiguredViaAssistant}
+          setView={setView}
+          handleTopologyChange={handleTopologyChange}
+          handleIndustryChange={handleIndustryChange}
+          onOpenHardwareTest={() => setIsHardwareTestOpen(true)}
+        />
+        {isHardwareTestOpen && (
+          <HardwareTestMode 
+            onClose={() => setIsHardwareTestOpen(false)} 
+            onDeploy={(config) => {
+              console.log("Hardware Deployment Config:", config);
+              // Move forward to dashboard and close test mode
+              setIsHardwareTestOpen(false);
+              setView('dashboard');
+            }}
+          />
+        )}
+      </>
     );
   }
 
@@ -1093,6 +1120,13 @@ const App: React.FC = () => {
              </div>
            </div>
            <div className="flex items-center gap-4">
+             <button 
+               onClick={() => setIsHardwareTestOpen(true)}
+               className="px-3 py-1 bg-amber/10 border border-amber/30 text-amber hover:bg-amber hover:text-black transition-all text-xs font-bold uppercase tracking-widest flex items-center gap-2"
+             >
+               <Zap size={12} />
+               Hardware Test Mode
+             </button>
              {/* Execution Mode Selector */}
              <div className="flex items-center gap-2 border border-zinc-800 bg-black/40 p-1 px-2">
                <span className="text-[8px] text-zinc-500 uppercase">Execution_Mode</span>
@@ -1121,7 +1155,16 @@ const App: React.FC = () => {
            </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 flex-1 overflow-hidden">
+      {isHardwareTestOpen && (
+        <HardwareTestMode 
+          onClose={() => setIsHardwareTestOpen(false)} 
+          onDeploy={(config) => {
+            console.log("Hardware Deployment Config:", config);
+          }}
+        />
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 flex-1 overflow-hidden">
           <div className="md:col-span-3 flex flex-col gap-3 overflow-y-auto pr-1 custom-scrollbar">
             <div className="shrink-0">
               <NeuralCommandCenter 
