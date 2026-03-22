@@ -4,17 +4,20 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "tsx server.ts",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "1.41.0",
+    "express": "^5.2.1",
     "lucide-react": "^0.575.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "recharts": "2.15.0"
+    "recharts": "2.15.0",
+    "serialport": "^13.0.0",
+    "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",
