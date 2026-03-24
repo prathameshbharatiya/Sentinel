@@ -351,7 +351,28 @@ export interface PreflightStatus {
 
 export enum HardwarePlatform {
   ROBOTIC_ARM = 'ROBOTIC_ARM',
-  AUTONOMOUS_DRONE = 'AUTONOMOUS_DRONE'
+  AUTONOMOUS_DRONE = 'AUTONOMOUS_DRONE',
+  SOUNDING_ROCKET = 'SOUNDING_ROCKET'
+}
+
+export enum RocketAvionicsStack {
+  ARDUINO_MEGA = 'Arduino Mega + sensors',
+  TEENSY_41 = 'Teensy 4.1 + sensors',
+  CUSTOM_FLIGHT_COMPUTER = 'Custom flight computer',
+  ROS2_COMPANION = 'ROS2 companion computer'
+}
+
+export enum RocketRecoverySystem {
+  DUAL_DEPLOY = 'Dual-deploy (drogue + main)',
+  SINGLE_DEPLOY = 'Single deploy (main only)',
+  ACTIVE_TVC = 'Active (TVC + recovery)'
+}
+
+export enum RocketTelemetryType {
+  LORA = 'LoRa radio (433/915 MHz)',
+  RFM95 = 'RFM95 / SX1276',
+  XBEE = 'XBee',
+  NONE = 'No telemetry'
 }
 
 export interface MvkConfig {
@@ -362,6 +383,10 @@ export interface MvkConfig {
   flightController?: string;
   rotorConfig?: string;
   companionComputer?: string;
+  // Rocket specific
+  avionicsStack?: RocketAvionicsStack;
+  recoverySystem?: RocketRecoverySystem;
+  telemetryType?: RocketTelemetryType;
   limits: {
     maxVelPct?: number;
     maxTorquePct?: number;
@@ -370,6 +395,12 @@ export interface MvkConfig {
     maxAltitude?: number;
     maxVelocity?: number;
     geofenceRadius?: number;
+    // Rocket specific
+    maxAltitudeDeviationPct?: number;
+    maxTrajectoryAngleDeg?: number;
+    recoveryDeployConfidencePct?: number;
+    ftsArmAltitudeM?: number;
+    telemetryBlackoutLimitS?: number;
   };
 }
 
@@ -391,6 +422,17 @@ export interface SafetyChecklist {
   safetyPilotReady?: boolean;
   propsBalanced?: boolean;
   batteryCharged?: boolean;
+  // Rocket specific
+  rangeSafetyApproval?: boolean;
+  motorCertified?: boolean;
+  igniterNotInstalled?: boolean;
+  recoverySystemTested?: boolean;
+  armingSwitchSafe?: boolean;
+  flightComputerConfigured?: boolean;
+  launchAreaClear?: boolean;
+  weatherWithinLimits?: boolean;
+  telemetryReceiving?: boolean;
+  sentinelMvkArmed?: boolean;
 }
 
 export interface RobotHealth {

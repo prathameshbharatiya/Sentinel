@@ -19,9 +19,17 @@ import {
   Download,
   Copy,
   HelpCircle,
-  Info
+  Info,
+  Rocket
 } from 'lucide-react';
-import { HardwarePlatform, MvkConfig, SafetyChecklist } from '../types';
+import { 
+  HardwarePlatform, 
+  MvkConfig, 
+  SafetyChecklist,
+  RocketAvionicsStack,
+  RocketRecoverySystem,
+  RocketTelemetryType
+} from '../types';
 
 interface HardwareTestModeProps {
   onClose: () => void;
@@ -35,7 +43,10 @@ const HardwareTestMode: React.FC<HardwareTestModeProps> = ({ onClose, onDeploy }
   const [platformConfig, setPlatformConfig] = useState<any>({
     controllerType: 'ROS2_FOXY',
     jointCount: 6,
-    rotorConfig: 'QUAD_X'
+    rotorConfig: 'QUAD_X',
+    avionicsStack: RocketAvionicsStack.ARDUINO_MEGA,
+    recoverySystem: RocketRecoverySystem.DUAL_DEPLOY,
+    telemetryType: RocketTelemetryType.LORA
   });
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
   const [verifyingItems, setVerifyingItems] = useState<Record<string, boolean>>({});
@@ -44,10 +55,16 @@ const HardwareTestMode: React.FC<HardwareTestModeProps> = ({ onClose, onDeploy }
   // Auto-complete non-hardware checklist items when platform is selected
   useEffect(() => {
     if (selectedPlatform) {
-      const checklist = selectedPlatform === HardwarePlatform.ROBOTIC_ARM ? ARM_CHECKLIST : DRONE_CHECKLIST;
+      const checklist = selectedPlatform === HardwarePlatform.ROBOTIC_ARM 
+        ? ARM_CHECKLIST 
+        : selectedPlatform === HardwarePlatform.AUTONOMOUS_DRONE 
+          ? DRONE_CHECKLIST 
+          : ROCKET_CHECKLIST;
+      
       const autoChecked = checklist.reduce((acc, item) => {
         // Hardware items require manual verification
-        if (item.id === 'ros2' || item.id === 'arduino') return acc;
+        const manualItems = ['ros2', 'arduino', 'telemetryLink', 'mvkArmed', 'igniterSafe', 'armingSwitch'];
+        if (manualItems.includes(item.id)) return acc;
         return { ...acc, [item.id]: true };
       }, {});
       setCheckedItems(autoChecked);
@@ -90,7 +107,13 @@ const HardwareTestMode: React.FC<HardwareTestModeProps> = ({ onClose, onDeploy }
     maxAltitude: 1.0,
     maxVelocity: 0.3,
     geofenceRadius: 3.0,
-    watchdogTimeoutS: 0.5
+    watchdogTimeoutS: 0.5,
+    // Rocket specific
+    maxAltitudeDeviationPct: 15,
+    maxTrajectoryAngleDeg: 20,
+    recoveryDeployConfidencePct: 80,
+    ftsArmAltitudeM: 100,
+    telemetryBlackoutLimitS: 5
   });
   const [generatedCode, setGeneratedCode] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -100,46 +123,60 @@ const HardwareTestMode: React.FC<HardwareTestModeProps> = ({ onClose, onDeploy }
   const logContainerRef = useRef<HTMLDivElement>(null);
 
   const ARM_CHECKLIST = [
-    { id: 'estop', title: 'Physical E-stop Verified', detail: 'Emergency stop button is functional and within reach.' },
-    { id: 'operator', title: 'Human Operator Present', detail: 'Qualified safety operator is at the controls.' },
-    { id: 'area', title: 'Work Area Clear', detail: 'Operational volume is free of obstructions and personnel.' },
+    { id: 'estop', title: 'Physical E-stop Verified', detail: 'Emergency stop button is functional and within reach.', verify: false },
+    { id: 'operator', title: 'Human Operator Present', detail: 'Qualified safety operator is at the controls.', verify: false },
+    { id: 'area', title: 'Work Area Clear', detail: 'Operational volume is free of obstructions and personnel.', verify: false },
     { id: 'ros2', title: 'ROS2 Environment Active', detail: 'Middleware core services are running and healthy.', verify: true },
     { id: 'arduino', title: 'Serial/Arduino Link', detail: 'Physical connection to motor controllers.', verify: true },
-    { id: 'notrunning', title: 'MVK Not Yet Running', detail: 'No existing safety kernel instances detected.' },
-    { id: 'secured', title: 'Arm Physically Secured', detail: 'Base mounting bolts and structural integrity verified.' },
-    { id: 'jointlimits', title: 'Joint Limits Verified', detail: 'Software-defined joint constraints are validated.' },
-    { id: 'torque', title: 'Torque Limits Configured', detail: 'Maximum motor current limits are set in firmware.' },
-    { id: 'effector', title: 'End Effector Safe', detail: 'Tooling is secured and within payload limits.' },
+    { id: 'notrunning', title: 'MVK Not Yet Running', detail: 'No existing safety kernel instances detected.', verify: false },
+    { id: 'secured', title: 'Arm Physically Secured', detail: 'Base mounting bolts and structural integrity verified.', verify: false },
+    { id: 'jointlimits', title: 'Joint Limits Verified', detail: 'Software-defined joint constraints are validated.', verify: false },
+    { id: 'torque', title: 'Torque Limits Configured', detail: 'Maximum motor current limits are set in firmware.', verify: false },
+    { id: 'effector', title: 'End Effector Safe', detail: 'Tooling is secured and within payload limits.', verify: false },
   ];
 
   const DRONE_CHECKLIST = [
-    { id: 'estop', title: 'Physical E-stop Verified', detail: 'Radio failsafe or physical kill switch is functional.' },
-    { id: 'operator', title: 'Human Operator Present', detail: 'Qualified pilot is at the ground control station.' },
-    { id: 'area', title: 'Work Area Clear', detail: 'Flight volume is free of obstructions and personnel.' },
-    { id: 'ros2', title: 'ROS2 Environment Active', detail: 'MAVROS or similar bridge is active and synced.', verify: true },
-    { id: 'arduino', title: 'Serial/Arduino Link', detail: 'Physical connection to flight controller.', verify: true },
-    { id: 'notrunning', title: 'MVK Not Yet Running', detail: 'No existing safety kernel instances detected.' },
-    { id: 'tether', title: 'Drone is Tethered', detail: 'Safety tether is engaged for initial hardware tests.' },
-    { id: 'failsafe', title: 'FC Failsafe Configured', detail: 'Flight controller RTL/Land triggers are verified.' },
-    { id: 'geofence', title: 'Geofence Set in FC', detail: 'Hardware-level geofence is active in PX4/ArduPilot.' },
-    { id: 'pilot', title: 'Safety Pilot Ready', detail: 'Backup pilot has manual override control.' },
-    { id: 'props', title: 'Propellers Secured', detail: 'Propeller integrity and mounting checked.' },
-    { id: 'battery', title: 'Battery Checked', detail: 'Voltage levels and cell balance verified.' },
+    { id: 'battery', title: 'Battery Levels Nominal', detail: 'Voltage is within safe operating range for flight.', verify: false },
+    { id: 'gps', title: 'GPS Lock Acquired', detail: 'Minimum of 6 satellites tracked for stable positioning.', verify: false },
+    { id: 'motors', title: 'Motor Sync Verified', detail: 'All rotors spin correctly and in the right direction.', verify: false },
+    { id: 'ros2', title: 'ROS2 Environment Active', detail: 'Middleware core services are running and healthy.', verify: true },
+    { id: 'arduino', title: 'Flight Controller Link', detail: 'Physical connection to flight controller.', verify: true },
+    { id: 'geofence', title: 'Geofence Configured', detail: 'Operational boundaries are set and active.', verify: false },
+    { id: 'failsafe', title: 'Failsafe Mode Set', detail: 'Return-to-home or land-in-place is configured.', verify: false },
+    { id: 'propellers', title: 'Propellers Secured', detail: 'All props are tightened and free of cracks.', verify: false },
+    { id: 'area', title: 'Takeoff Area Clear', detail: 'Launch pad is free of obstructions and personnel.', verify: false },
+    { id: 'signal', title: 'RC Signal Strength', detail: 'Radio link quality is above 80%.', verify: false },
+  ];
+
+  const ROCKET_CHECKLIST = [
+    { id: 'rangeSafety', title: 'RANGE SAFETY OFFICER APPROVAL', detail: 'Written approval from Range Safety Officer has been obtained. Launch is authorized for the scheduled time window.', verify: false },
+    { id: 'motorCertified', title: 'MOTOR IS CERTIFIED AND LEGAL', detail: 'Motor certification matches your license level (HPR L1/L2/L3 or equivalent). Motor has not exceeded expiry date.', verify: false },
+    { id: 'igniterSafe', title: 'IGNITER IS NOT INSTALLED', detail: 'Igniter is NOT installed in the motor. It will be installed only at the pad by a certified flier.', verify: false },
+    { id: 'recoveryTested', title: 'RECOVERY SYSTEM TESTED', detail: 'Ejection charges have been ground-tested. Both drogue and main have been confirmed to deploy correctly under test conditions.', verify: false },
+    { id: 'armingSwitch', title: 'ARMING SWITCH IS SAFE (OFF)', detail: 'Avionics arming switch is in SAFE position. No pyro channels are active. Continuity has been verified.', verify: false },
+    { id: 'computerConfig', title: 'FLIGHT COMPUTER IS CONFIGURED', detail: 'Flight computer has been configured with correct deployment altitudes and delays. Configuration has been verified by a second team member.', verify: false },
+    { id: 'areaClear', title: 'LAUNCH AREA IS CLEAR', detail: 'Launch area is clear of personnel. Minimum safety radius per motor class has been established and enforced.', verify: false },
+    { id: 'weatherLimits', title: 'WEATHER IS WITHIN LIMITS', detail: 'Wind speed is within motor class limits. Cloud ceiling allows visual tracking. No lightning within 30km.', verify: false },
+    { id: 'telemetryLink', title: 'TELEMETRY IS RECEIVING', detail: 'Ground station is receiving telemetry. GPS lock confirmed (if applicable). Battery levels nominal.', verify: false },
+    { id: 'mvkArmed', title: 'SENTINEL MVK IS ARMED', detail: 'Sentinel governance kernel is running on the flight computer or companion. Heartbeat confirmed in ground station.', verify: false },
   ];
 
   const activeChecklist = selectedPlatform === HardwarePlatform.ROBOTIC_ARM
     ? ARM_CHECKLIST
-    : DRONE_CHECKLIST;
+    : selectedPlatform === HardwarePlatform.AUTONOMOUS_DRONE
+      ? DRONE_CHECKLIST
+      : ROCKET_CHECKLIST;
 
   const allItemsChecked = activeChecklist.length > 0 &&
     activeChecklist.every(item => checkedItems[item.id] === true);
 
   const canProceedScreen1 = 
     selectedPlatform !== null &&
-    platformConfig.controllerType != null &&
     (selectedPlatform === HardwarePlatform.ROBOTIC_ARM 
-      ? platformConfig.jointCount != null
-      : platformConfig.rotorConfig != null);
+      ? platformConfig.controllerType != null && platformConfig.jointCount != null
+      : selectedPlatform === HardwarePlatform.AUTONOMOUS_DRONE
+        ? platformConfig.controllerType != null && platformConfig.rotorConfig != null
+        : platformConfig.avionicsStack != null && platformConfig.recoverySystem != null);
 
   const toggleCheck = (itemId: string) => {
     setCheckedItems(prev => ({
@@ -157,7 +194,91 @@ const HardwareTestMode: React.FC<HardwareTestModeProps> = ({ onClose, onDeploy }
   const generateMvkCode = () => {
     setIsGenerating(true);
     setTimeout(() => {
-      const code = `#!/usr/bin/env python3
+      let code = "";
+      
+      if (selectedPlatform === HardwarePlatform.SOUNDING_ROCKET) {
+        code = `# FILE: sentinel_config.json
+{
+  "platform": "SOUNDING_ROCKET",
+  "avionics": "${platformConfig.avionicsStack}",
+  "recovery": "${platformConfig.recoverySystem}",
+  "telemetry": "${platformConfig.telemetryType}",
+  "safety_limits": {
+    "max_altitude_deviation_pct": ${safetyParams.maxAltitudeDeviationPct},
+    "max_trajectory_angle_deg": ${safetyParams.maxTrajectoryAngleDeg},
+    "fts_arm_altitude_m": ${safetyParams.ftsArmAltitudeM}
+  }
+}
+
+# -----------------------------------------------------------------------------
+# FILE: sentinel_rocket_mvk.py
+#!/usr/bin/env python3
+import time
+import json
+import hashlib
+import os
+import math
+import serial
+import serial.tools.list_ports
+
+# SENTINEL ROCKET MVK v1.0 - SOUNDING ROCKET GOVERNANCE
+# PLATFORM: SOUNDING_ROCKET
+
+class SentinelRocketMVK:
+    def __init__(self):
+        # 1. LOAD CONFIG
+        with open('sentinel_config.json', 'r') as f:
+            self.config = json.load(f)
+            
+        self.max_alt_dev = self.config['safety_limits']['max_altitude_deviation_pct'] / 100.0
+        self.max_traj_angle = self.config['safety_limits']['max_trajectory_angle_deg']
+        self.fts_arm_alt = self.config['safety_limits']['fts_arm_altitude_m']
+        
+        # 2. MISSION PHASES
+        self.phases = ["PRELAUNCH", "POWERED_ASCENT", "COAST", "APOGEE_WINDOW", "DROGUE_DESCENT", "MAIN_DESCENT", "LANDED"]
+        self.current_phase = "PRELAUNCH"
+        
+        # 3. FTS STATUS
+        self.fts_status = "LOCKED"
+        
+        # 4. LOGGING
+        self.log_path = "sentinel_flight_log.jsonl"
+        self.last_hash = "0" * 64
+        
+    def run(self):
+        print(f"[SENTINEL] ROCKET GOVERNANCE ACTIVE - PHASE: {self.current_phase}")
+        # Main loop logic...
+
+# -----------------------------------------------------------------------------
+# FILE: sentinel_arduino_bridge.ino
+/*
+  SENTINEL ARDUINO BRIDGE - AVIONICS INTERFACE
+  PLATFORM: SOUNDING_ROCKET
+*/
+
+#define FTS_PIN 9
+#define TELEMETRY_BAUD 115200
+
+void setup() {
+  Serial.begin(TELEMETRY_BAUD);
+  pinMode(FTS_PIN, OUTPUT);
+  digitalWrite(FTS_PIN, LOW);
+  // Initialize sensors...
+}
+
+void loop() {
+  // Read sensors and send telemetry...
+  // Listen for Sentinel commands...
+}
+
+# -----------------------------------------------------------------------------
+# FILE: sentinel_launch.sh
+#!/bin/bash
+echo "[SENTINEL] INITIALIZING ROCKET LAUNCH SEQUENCE..."
+python3 sentinel_rocket_mvk.py
+`;
+      } else {
+        code = `#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
@@ -391,6 +512,7 @@ def main():
 if __name__ == '__main__':
     main()
 `;
+      }
       setGeneratedCode(code);
       setIsGenerating(false);
       setHtmScreen(3);
@@ -580,6 +702,30 @@ if __name__ == '__main__':
                     <li className="flex items-center gap-3 text-[10px] font-mono text-zinc-400 font-bold uppercase tracking-widest list-none"><div className="w-1.5 h-1.5 bg-[#00ff41]"></div> Failsafe Triggering</li>
                   </div>
                 </button>
+
+                <button 
+                  onClick={() => {
+                    setSelectedPlatform(HardwarePlatform.SOUNDING_ROCKET);
+                    setHtmScreen(2);
+                    setCheckedItems({});
+                  }}
+                  className={`group relative p-7 bg-zinc-950 border transition-all text-left space-y-7 ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'border-[#ff4444] bg-[#ff4444]/5' : 'border-zinc-800 hover:border-zinc-600'} border-t-[3px] border-t-[#ff4444]`}
+                >
+                  <div className="absolute top-0 right-0 p-6 text-[9px] font-mono text-zinc-700 font-bold uppercase tracking-widest">ID: RKT_0x03</div>
+                  <div className={`w-16 h-16 flex items-center justify-center border transition-all ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'border-[#ff4444] bg-[#ff4444] text-black shadow-[0_0_20px_rgba(255,68,68,0.3)]' : 'border-zinc-800 bg-zinc-900 text-zinc-500 group-hover:text-[#ff4444] group-hover:border-[#ff4444]/50'}`}>
+                    <Rocket size={36} className="stroke-[#ff4444]" />
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-[20px] font-display font-black uppercase text-white italic tracking-tighter">Sounding_Rocket</h3>
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-zinc-500 uppercase font-mono tracking-widest opacity-60">CONTROL SPACE: 1DOF-3DOF trajectory</p>
+                      <p className="text-[11px] text-zinc-500 uppercase font-mono tracking-widest opacity-60">PHASES: Powered/Coast/Recovery</p>
+                      <p className="text-[11px] text-zinc-500 uppercase font-mono tracking-widest opacity-60">SAFETY FOCUS: FTS, recovery deployment</p>
+                      <p className="text-[11px] text-zinc-500 uppercase font-mono tracking-widest opacity-60">INTERFACE: Arduino/Teensy avionics</p>
+                      <p className="text-[11px] text-zinc-500 uppercase font-mono tracking-widest opacity-60">COMPLIANCE: NASA-STD-8739.8</p>
+                    </div>
+                  </div>
+                </button>
               </div>
             </div>
           )}
@@ -596,26 +742,28 @@ if __name__ == '__main__':
                 </div>
                 <div className="flex flex-col items-end gap-2">
                    <span className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest font-bold">Target_Hardware</span>
-                   <div className="px-5 py-2 bg-[#00ff41]/10 border border-[#00ff41]/30 text-[#00ff41] font-display font-black italic text-[10px] uppercase tracking-widest">
-                    {selectedPlatform?.replace(/_/g, ' ')}
-                  </div>
+                    <div className={`px-5 py-2 border font-display font-black italic text-[10px] uppercase tracking-widest ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444]/10 border-[#ff4444]/30 text-[#ff4444]' : 'bg-[#00ff41]/10 border-[#00ff41]/30 text-[#00ff41]'}`}>
+                     {selectedPlatform?.replace(/_/g, ' ')}
+                   </div>
                 </div>
               </div>
 
               {/* Hardware Connection Instructions */}
               <div className="space-y-4">
-                <div className="p-6 bg-[#00ff41]/5 border border-dashed border-[#00ff41]/30 relative overflow-hidden group">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-[#00ff41]/50"></div>
+                <div className={`p-6 border border-dashed relative overflow-hidden group ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444]/5 border-[#ff4444]/30' : 'bg-[#00ff41]/5 border-[#00ff41]/30'}`}>
+                  <div className={`absolute top-0 left-0 w-1 h-full ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444]/50' : 'bg-[#00ff41]/50'}`}></div>
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-4">
-                      <div className="p-2 bg-[#00ff41]/10 text-[#00ff41]">
+                      <div className={`p-2 ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444]/10 text-[#ff4444]' : 'bg-[#00ff41]/10 text-[#00ff41]'}`}>
                         <Zap size={20} />
                       </div>
                       <div className="space-y-2">
-                        <h4 className="text-[11px] font-mono font-black uppercase tracking-widest text-[#00ff41]">Hardware_Connection_Protocol</h4>
+                        <h4 className={`text-[11px] font-mono font-black uppercase tracking-widest ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'}`}>Hardware_Connection_Protocol</h4>
                         <p className="text-xs text-zinc-400 leading-relaxed">
-                          To test the real hardware connection: Ensure you are running the app in an environment with ROS2 installed or an Arduino connected via USB. 
-                          In the Safety Protocol Wizard, click <span className="text-[#00ff41] font-bold">"Verify Link"</span> next to the ROS2 or Arduino items. 
+                          {selectedPlatform === HardwarePlatform.SOUNDING_ROCKET 
+                            ? "To test the flight hardware: Ensure your avionics stack (Arduino/Teensy) is connected via Serial. Sentinel will monitor telemetry and govern deployment channels."
+                            : "To test the real hardware connection: Ensure you are running the app in an environment with ROS2 installed or an Arduino connected via USB."}
+                          {" "}In the Safety Protocol Wizard, click <span className={`${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'} font-bold`}>"Verify Link"</span> next to the relevant items. 
                         </p>
                       </div>
                     </div>
@@ -623,7 +771,7 @@ if __name__ == '__main__':
                       onClick={() => setShowTroubleshooting(!showTroubleshooting)}
                       className={`flex items-center gap-2 px-4 py-2 font-mono text-[9px] uppercase tracking-widest font-bold transition-all ${
                         showTroubleshooting 
-                          ? 'bg-[#00ff41] text-black' 
+                          ? (selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444] text-black' : 'bg-[#00ff41] text-black')
                           : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
                       }`}
                     >
@@ -635,67 +783,113 @@ if __name__ == '__main__':
 
                 {showTroubleshooting && (
                   <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                    <div className="p-6 bg-zinc-950 border border-zinc-800 space-y-4">
-                      <div className="flex items-center gap-2 text-[#00ff41]">
-                        <Terminal size={16} />
-                        <span className="text-[10px] font-mono font-black uppercase tracking-widest">ROS2_Troubleshooting</span>
-                      </div>
-                      <ul className="space-y-3 font-mono text-[9px] text-zinc-500 uppercase tracking-wider leading-relaxed">
-                        <li className="flex gap-3">
-                          <span className="text-[#00ff41]">01</span>
-                          <span>Ensure ROS2 environment is sourced: <code className="text-zinc-300 lowercase">source /opt/ros/humble/setup.bash</code></span>
-                        </li>
-                        <li className="flex gap-3">
-                          <span className="text-[#00ff41]">02</span>
-                          <span>Verify topics are active in terminal: <code className="text-zinc-300 lowercase">ros2 topic list</code></span>
-                        </li>
-                        <li className="flex gap-3">
-                          <span className="text-[#00ff41]">03</span>
-                          <span>Required topics: <code className="text-zinc-300 lowercase">/cmd_vel_raw</code> and <code className="text-zinc-300 lowercase">/joint_states</code></span>
-                        </li>
-                      </ul>
-                    </div>
-                    <div className="p-6 bg-zinc-950 border border-zinc-800 space-y-4">
-                      <div className="flex items-center gap-2 text-[#00ff41]">
-                        <Cpu size={16} />
-                        <span className="text-[10px] font-mono font-black uppercase tracking-widest">Arduino_Troubleshooting</span>
-                      </div>
-                      <ul className="space-y-3 font-mono text-[9px] text-zinc-500 uppercase tracking-wider leading-relaxed">
-                        <li className="flex gap-3">
-                          <span className="text-[#00ff41]">01</span>
-                          <span>Check physical USB connection and cable integrity.</span>
-                        </li>
-                        <li className="flex gap-3">
-                          <span className="text-[#00ff41]">02</span>
-                          <span>Verify port permissions: <code className="text-zinc-300 lowercase">sudo chmod 666 /dev/ttyUSB0</code></span>
-                        </li>
-                        <li className="flex gap-3">
-                          <span className="text-[#00ff41]">03</span>
-                          <span>Ensure no other serial monitors (Arduino IDE, etc.) are using the port.</span>
-                        </li>
-                      </ul>
-                    </div>
+                    {selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? (
+                      <>
+                        <div className="p-6 bg-zinc-950 border border-zinc-800 space-y-4">
+                          <div className="flex items-center gap-2 text-[#ff4444]">
+                            <Terminal size={16} />
+                            <span className="text-[10px] font-mono font-black uppercase tracking-widest">Avionics_Serial_Link</span>
+                          </div>
+                          <ul className="space-y-3 font-mono text-[9px] text-zinc-500 uppercase tracking-wider leading-relaxed">
+                            <li className="flex gap-3">
+                              <span className="text-[#ff4444]">01</span>
+                              <span>Check baud rate matches (default 115200).</span>
+                            </li>
+                            <li className="flex gap-3">
+                              <span className="text-[#ff4444]">02</span>
+                              <span>Verify port: <code className="text-zinc-300 lowercase">/dev/ttyACM0</code> or <code className="text-zinc-300 lowercase">COMx</code></span>
+                            </li>
+                            <li className="flex gap-3">
+                              <span className="text-[#ff4444]">03</span>
+                              <span>Ensure Sentinel MVK has read/write permissions.</span>
+                            </li>
+                          </ul>
+                        </div>
+                        <div className="p-6 bg-zinc-950 border border-zinc-800 space-y-4">
+                          <div className="flex items-center gap-2 text-[#ff4444]">
+                            <Cpu size={16} />
+                            <span className="text-[10px] font-mono font-black uppercase tracking-widest">Telemetry_Reception</span>
+                          </div>
+                          <ul className="space-y-3 font-mono text-[9px] text-zinc-500 uppercase tracking-wider leading-relaxed">
+                            <li className="flex gap-3">
+                              <span className="text-[#ff4444]">01</span>
+                              <span>Verify LoRa/Radio frequency and sync word.</span>
+                            </li>
+                            <li className="flex gap-3">
+                              <span className="text-[#ff4444]">02</span>
+                              <span>Check antenna orientation and polarization.</span>
+                            </li>
+                            <li className="flex gap-3">
+                              <span className="text-[#ff4444]">03</span>
+                              <span>Confirm GPS lock (minimum 4 satellites).</span>
+                            </li>
+                          </ul>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="p-6 bg-zinc-950 border border-zinc-800 space-y-4">
+                          <div className="flex items-center gap-2 text-[#00ff41]">
+                            <Terminal size={16} />
+                            <span className="text-[10px] font-mono font-black uppercase tracking-widest">ROS2_Troubleshooting</span>
+                          </div>
+                          <ul className="space-y-3 font-mono text-[9px] text-zinc-500 uppercase tracking-wider leading-relaxed">
+                            <li className="flex gap-3">
+                              <span className="text-[#00ff41]">01</span>
+                              <span>Ensure ROS2 environment is sourced: <code className="text-zinc-300 lowercase">source /opt/ros/humble/setup.bash</code></span>
+                            </li>
+                            <li className="flex gap-3">
+                              <span className="text-[#00ff41]">02</span>
+                              <span>Verify topics are active in terminal: <code className="text-zinc-300 lowercase">ros2 topic list</code></span>
+                            </li>
+                            <li className="flex gap-3">
+                              <span className="text-[#00ff41]">03</span>
+                              <span>Required topics: <code className="text-zinc-300 lowercase">/cmd_vel_raw</code> and <code className="text-zinc-300 lowercase">/joint_states</code></span>
+                            </li>
+                          </ul>
+                        </div>
+                        <div className="p-6 bg-zinc-950 border border-zinc-800 space-y-4">
+                          <div className="flex items-center gap-2 text-[#00ff41]">
+                            <Cpu size={16} />
+                            <span className="text-[10px] font-mono font-black uppercase tracking-widest">Arduino_Troubleshooting</span>
+                          </div>
+                          <ul className="space-y-3 font-mono text-[9px] text-zinc-500 uppercase tracking-wider leading-relaxed">
+                            <li className="flex gap-3">
+                              <span className="text-[#00ff41]">01</span>
+                              <span>Check physical USB connection and cable integrity.</span>
+                            </li>
+                            <li className="flex gap-3">
+                              <span className="text-[#00ff41]">02</span>
+                              <span>Verify port permissions: <code className="text-zinc-300 lowercase">sudo chmod 666 /dev/ttyUSB0</code></span>
+                            </li>
+                            <li className="flex gap-3">
+                              <span className="text-[#00ff41]">03</span>
+                              <span>Ensure no other serial monitors (Arduino IDE, etc.) are using the port.</span>
+                            </li>
+                          </ul>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
 
               <div className="grid grid-cols-12 gap-16">
-                <div className="col-span-7 space-y-10">
-                  <div className="bg-zinc-950 border border-zinc-800 p-10 space-y-10 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-[#00ff41]/20"></div>
+                <div className="col-span-7 space-y-10">                    <div className="bg-zinc-950 border border-zinc-800 p-10 space-y-10 relative overflow-hidden">
+                    <div className={`absolute top-0 left-0 w-1 h-full ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444]/20' : 'bg-[#00ff41]/20'}`}></div>
                     <div className="flex justify-between items-center">
                       <h3 className="text-xl font-display font-black uppercase text-white italic flex items-center gap-3 tracking-tighter">
-                        <ShieldCheck className="text-[#00ff41]" size={24} /> Pre-Flight Checklist
+                        <ShieldCheck className={selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'} size={24} /> Pre-Flight Checklist
                       </h3>
                       <div className="flex flex-col items-end gap-2">
                         <div 
-                          className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#00ff41]"
+                          className={`text-[10px] font-mono font-bold uppercase tracking-widest ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'}`}
                         >
                           {activeChecklist.filter(item => checkedItems[item.id]).length} / {totalCount} VERIFIED
                         </div>
                         <div className="w-32 h-1 bg-zinc-900 rounded-none overflow-hidden">
                           <div 
-                            className="h-full w-full transition-all duration-500 ease-out bg-[#00ff41] shadow-[0_0_15px_rgba(0,255,65,0.6)]"
+                            className={`h-full w-full transition-all duration-500 ease-out ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444] shadow-[0_0_15px_rgba(255,68,68,0.6)]' : 'bg-[#00ff41] shadow-[0_0_15px_rgba(0,255,65,0.6)]'}`}
                           />
                         </div>
                       </div>
@@ -706,7 +900,7 @@ if __name__ == '__main__':
                           key={item.id}
                           className={`w-full flex items-center justify-between p-4 border transition-all ${
                             checkedItems[item.id] 
-                              ? 'border-[#00ff41]/30 bg-[#00ff41]/5 text-[#00ff41]' 
+                              ? (selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'border-[#ff4444]/30 bg-[#ff4444]/5 text-[#ff4444]' : 'border-[#00ff41]/30 bg-[#00ff41]/5 text-[#00ff41]') 
                               : 'border-zinc-800 bg-zinc-900/50 text-zinc-500'
                           }`}
                         >
@@ -719,7 +913,11 @@ if __name__ == '__main__':
                               <button
                                 onClick={() => handleVerify(item.id)}
                                 disabled={verifyingItems[item.id]}
-                                className="px-4 py-1 border border-[#00ff41] text-[#00ff41] text-[10px] font-mono font-black uppercase tracking-widest hover:bg-[#00ff41] hover:text-black transition-all flex items-center gap-2 disabled:opacity-50"
+                                className={`px-4 py-1 border text-[10px] font-mono font-black uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-50 ${
+                                  selectedPlatform === HardwarePlatform.SOUNDING_ROCKET 
+                                    ? 'border-[#ff4444] text-[#ff4444] hover:bg-[#ff4444] hover:text-black' 
+                                    : 'border-[#00ff41] text-[#00ff41] hover:bg-[#00ff41] hover:text-black'
+                                }`}
                               >
                                 {verifyingItems[item.id] ? (
                                   <>
@@ -736,7 +934,7 @@ if __name__ == '__main__':
                               onClick={() => !item.verify && setCheckedItems(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
                               className={`w-6 h-6 border-2 flex items-center justify-center cursor-pointer ${
                                 checkedItems[item.id] 
-                                  ? 'border-[#00ff41] bg-[#00ff41] text-black' 
+                                  ? (selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'border-[#ff4444] bg-[#ff4444] text-black' : 'border-[#00ff41] bg-[#00ff41] text-black') 
                                   : 'border-zinc-700 bg-transparent text-transparent'
                               }`}
                             >
@@ -756,54 +954,172 @@ if __name__ == '__main__':
                 </div>
 
                 <div className="col-span-5 space-y-10">
+                  {/* PLATFORM SPECIFIC CONFIG */}
+                  {selectedPlatform === HardwarePlatform.SOUNDING_ROCKET && (
+                    <div className="bg-zinc-950 border border-zinc-800 p-10 space-y-10 relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-[#ff4444]/20"></div>
+                      <h3 className="text-xl font-display font-black uppercase text-white italic flex items-center gap-3 tracking-tighter">
+                        <Cpu className="text-[#ff4444]" size={24} /> Rocket_Configuration
+                      </h3>
+                      <div className="space-y-8">
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-mono font-black uppercase text-zinc-500 tracking-widest">Avionics_Stack</label>
+                          <div className="grid grid-cols-1 gap-2">
+                            {Object.values(RocketAvionicsStack).map(stack => (
+                              <button
+                                key={stack}
+                                onClick={() => setPlatformConfig(prev => ({ ...prev, avionicsStack: stack }))}
+                                className={`p-3 border text-[10px] font-mono font-bold uppercase tracking-widest text-left transition-all ${platformConfig.avionicsStack === stack ? 'border-[#ff4444] bg-[#ff4444]/10 text-white' : 'border-zinc-800 bg-zinc-900 text-zinc-500 hover:border-zinc-600'}`}
+                              >
+                                {stack.replace(/_/g, ' ')}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-mono font-black uppercase text-zinc-500 tracking-widest">Recovery_System</label>
+                          <div className="grid grid-cols-1 gap-2">
+                            {Object.values(RocketRecoverySystem).map(system => (
+                              <button
+                                key={system}
+                                onClick={() => setPlatformConfig(prev => ({ ...prev, recoverySystem: system }))}
+                                className={`p-3 border text-[10px] font-mono font-bold uppercase tracking-widest text-left transition-all ${platformConfig.recoverySystem === system ? 'border-[#ff4444] bg-[#ff4444]/10 text-white' : 'border-zinc-800 bg-zinc-900 text-zinc-500 hover:border-zinc-600'}`}
+                              >
+                                {system.replace(/_/g, ' ')}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-mono font-black uppercase text-zinc-500 tracking-widest">Telemetry_Type</label>
+                          <div className="grid grid-cols-1 gap-2">
+                            {Object.values(RocketTelemetryType).map(type => (
+                              <button
+                                key={type}
+                                onClick={() => setPlatformConfig(prev => ({ ...prev, telemetryType: type }))}
+                                className={`p-3 border text-[10px] font-mono font-bold uppercase tracking-widest text-left transition-all ${platformConfig.telemetryType === type ? 'border-[#ff4444] bg-[#ff4444]/10 text-white' : 'border-zinc-800 bg-zinc-900 text-zinc-500 hover:border-zinc-600'}`}
+                              >
+                                {type.replace(/_/g, ' ')}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="bg-zinc-950 border border-zinc-800 p-10 space-y-10 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-[#00ff41]/20"></div>
+                    <div className={`absolute top-0 left-0 w-1 h-full ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444]/20' : 'bg-[#00ff41]/20'}`}></div>
                     <h3 className="text-xl font-display font-black uppercase text-white italic flex items-center gap-3 tracking-tighter">
-                      <Lock className="text-[#00ff41]" size={24} /> Safety Limits
+                      <Lock className={selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'} size={24} /> Safety Limits
                     </h3>
                     <div className="space-y-10">
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-end text-xs font-mono uppercase font-black tracking-widest text-zinc-500">
-                          <span>Max Velocity Clamp</span>
-                          <span className="text-[#00ff41] font-display text-2xl italic font-black">{safetyParams.maxVelPct}%</span>
-                        </div>
-                        <div className="relative h-2 bg-zinc-900 border border-zinc-800">
-                          <input 
-                            type="range" 
-                            min="5" max="50" step="5"
-                            value={safetyParams.maxVelPct}
-                            onChange={(e) => setSafetyParams(prev => ({ ...prev, maxVelPct: parseInt(e.target.value) }))}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                          />
-                          <div 
-                            className="h-full bg-[#00ff41] shadow-[0_0_15px_rgba(0,255,65,0.4)] transition-all duration-200"
-                            style={{ width: `${(safetyParams.maxVelPct / 50) * 100}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-end text-xs font-mono uppercase font-black tracking-widest text-zinc-500">
-                          <span>Max Torque/Power</span>
-                          <span className="text-[#00ff41] font-display text-2xl italic font-black">{safetyParams.maxTorquePct}%</span>
-                        </div>
-                        <div className="relative h-2 bg-zinc-900 border border-zinc-800">
-                          <input 
-                            type="range" 
-                            min="10" max="60" step="5"
-                            value={safetyParams.maxTorquePct}
-                            onChange={(e) => setSafetyParams(prev => ({ ...prev, maxTorquePct: parseInt(e.target.value) }))}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                          />
-                          <div 
-                            className="h-full bg-[#00ff41] shadow-[0_0_15px_rgba(0,255,65,0.4)] transition-all duration-200"
-                            style={{ width: `${(safetyParams.maxTorquePct / 60) * 100}%` }}
-                          ></div>
-                        </div>
-                      </div>
+                      {selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? (
+                        <>
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-end text-xs font-mono uppercase font-black tracking-widest text-zinc-500">
+                              <span>Max Altitude Deviation</span>
+                              <span className="text-[#ff4444] font-display text-2xl italic font-black">{safetyParams.maxAltitudeDeviationPct}%</span>
+                            </div>
+                            <div className="relative h-2 bg-zinc-900 border border-zinc-800">
+                              <input 
+                                type="range" 
+                                min="5" max="30" step="1"
+                                value={safetyParams.maxAltitudeDeviationPct}
+                                onChange={(e) => setSafetyParams(prev => ({ ...prev, maxAltitudeDeviationPct: parseInt(e.target.value) }))}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                              />
+                              <div 
+                                className="h-full bg-[#ff4444] shadow-[0_0_15px_rgba(255,68,68,0.4)] transition-all duration-200"
+                                style={{ width: `${((safetyParams.maxAltitudeDeviationPct - 5) / 25) * 100}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-end text-xs font-mono uppercase font-black tracking-widest text-zinc-500">
+                              <span>Max Trajectory Angle</span>
+                              <span className="text-[#ff4444] font-display text-2xl italic font-black">{safetyParams.maxTrajectoryAngleDeg}°</span>
+                            </div>
+                            <div className="relative h-2 bg-zinc-900 border border-zinc-800">
+                              <input 
+                                type="range" 
+                                min="5" max="45" step="1"
+                                value={safetyParams.maxTrajectoryAngleDeg}
+                                onChange={(e) => setSafetyParams(prev => ({ ...prev, maxTrajectoryAngleDeg: parseInt(e.target.value) }))}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                              />
+                              <div 
+                                className="h-full bg-[#ff4444] shadow-[0_0_15px_rgba(255,68,68,0.4)] transition-all duration-200"
+                                style={{ width: `${((safetyParams.maxTrajectoryAngleDeg - 5) / 40) * 100}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-end text-xs font-mono uppercase font-black tracking-widest text-zinc-500">
+                              <span>FTS Arm Altitude</span>
+                              <span className="text-[#ff4444] font-display text-2xl italic font-black">{safetyParams.ftsArmAltitudeM}m</span>
+                            </div>
+                            <div className="relative h-2 bg-zinc-900 border border-zinc-800">
+                              <input 
+                                type="range" 
+                                min="50" max="500" step="10"
+                                value={safetyParams.ftsArmAltitudeM}
+                                onChange={(e) => setSafetyParams(prev => ({ ...prev, ftsArmAltitudeM: parseInt(e.target.value) }))}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                              />
+                              <div 
+                                className="h-full bg-[#ff4444] shadow-[0_0_15px_rgba(255,68,68,0.4)] transition-all duration-200"
+                                style={{ width: `${((safetyParams.ftsArmAltitudeM - 50) / 450) * 100}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-end text-xs font-mono uppercase font-black tracking-widest text-zinc-500">
+                              <span>Max Velocity Clamp</span>
+                              <span className="text-[#00ff41] font-display text-2xl italic font-black">{safetyParams.maxVelPct}%</span>
+                            </div>
+                            <div className="relative h-2 bg-zinc-900 border border-zinc-800">
+                              <input 
+                                type="range" 
+                                min="5" max="50" step="5"
+                                value={safetyParams.maxVelPct}
+                                onChange={(e) => setSafetyParams(prev => ({ ...prev, maxVelPct: parseInt(e.target.value) }))}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                              />
+                              <div 
+                                className="h-full bg-[#00ff41] shadow-[0_0_15px_rgba(0,255,65,0.4)] transition-all duration-200"
+                                style={{ width: `${(safetyParams.maxVelPct / 50) * 100}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-end text-xs font-mono uppercase font-black tracking-widest text-zinc-500">
+                              <span>Max Torque/Power</span>
+                              <span className="text-[#00ff41] font-display text-2xl italic font-black">{safetyParams.maxTorquePct}%</span>
+                            </div>
+                            <div className="relative h-2 bg-zinc-900 border border-zinc-800">
+                              <input 
+                                type="range" 
+                                min="10" max="60" step="5"
+                                value={safetyParams.maxTorquePct}
+                                onChange={(e) => setSafetyParams(prev => ({ ...prev, maxTorquePct: parseInt(e.target.value) }))}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                              />
+                              <div 
+                                className="h-full bg-[#00ff41] shadow-[0_0_15px_rgba(0,255,65,0.4)] transition-all duration-200"
+                                style={{ width: `${(safetyParams.maxTorquePct / 60) * 100}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        </>
+                      )}
                       <div className="space-y-4">
                         <div className="flex justify-between items-end text-xs font-mono uppercase font-black tracking-widest text-zinc-500">
                           <span>Confidence Floor</span>
-                          <span className="text-[#00ff41] font-display text-2xl italic font-black">{safetyParams.confidenceThreshold}%</span>
+                          <span className={`${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'} font-display text-2xl italic font-black`}>{safetyParams.confidenceThreshold}%</span>
                         </div>
                         <div className="relative h-2 bg-zinc-900 border border-zinc-800">
                           <input 
@@ -814,16 +1130,18 @@ if __name__ == '__main__':
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                           />
                           <div 
-                            className="h-full bg-[#00ff41] shadow-[0_0_15px_rgba(0,255,65,0.4)] transition-all duration-200"
+                            className={`h-full transition-all duration-200 ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444] shadow-[0_0_15px_rgba(255,68,68,0.4)]' : 'bg-[#00ff41] shadow-[0_0_15px_rgba(0,255,65,0.4)]'}`}
                             style={{ width: `${((safetyParams.confidenceThreshold - 50) / 45) * 100}%` }}
                           ></div>
                         </div>
                       </div>
-                    <div className="p-4 bg-[#00ff41]/5 border border-[#00ff41]/20">
-                        <div className="flex gap-3 text-[#00ff41]">
+                    <div className={`p-4 border ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444]/5 border-[#ff4444]/20' : 'bg-[#00ff41]/5 border-[#00ff41]/20'}`}>
+                        <div className={`flex gap-3 ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'}`}>
                           <AlertTriangle size={20} className="shrink-0" />
                           <p className="text-[9px] font-mono uppercase leading-relaxed font-bold tracking-widest">
-                            Hardware Test Mode enforces a hard 50% velocity ceiling regardless of user input.
+                            {selectedPlatform === HardwarePlatform.SOUNDING_ROCKET 
+                              ? "Sentinel enforces hard FTS lockout below arm altitude to protect ground crew."
+                              : "Hardware Test Mode enforces a hard 50% velocity ceiling regardless of user input."}
                           </p>
                         </div>
                       </div>
@@ -832,18 +1150,22 @@ if __name__ == '__main__':
                       <div className="pt-6 border-t border-zinc-900 space-y-6">
                         <h3 className="text-xs font-mono font-black uppercase text-zinc-500 tracking-widest">Mission_Phase_Configuration</h3>
                         <div className="grid grid-cols-1 gap-4">
-                          {[
+                          {(selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? [
+                            { id: 'POWERED_ASCENT', label: 'Powered Ascent', desc: 'Max Lyapunov monitoring' },
+                            { id: 'APOGEE_WINDOW', label: 'Apogee Window', desc: 'Fault suppression active' },
+                            { id: 'DESCENT', label: 'Descent Phase', desc: 'Recovery confidence focus' }
+                          ] : [
                             { id: 'TAKEOFF', label: 'Takeoff Phase', desc: 'Tighter delta, high RLS innovation' },
                             { id: 'PAYLOAD_TRANSITION', label: 'Payload Transition', desc: 'Fault suppression active' },
                             { id: 'LANDING', label: 'Landing Phase', desc: 'Maximum Lyapunov alpha' }
-                          ].map(phase => (
+                          ]).map(phase => (
                             <button
                               key={phase.id}
                               onClick={() => {
                                 // In a real app, this would update the runtime
                                 // For now, we just simulate the UI state
                               }}
-                              className="flex items-center justify-between p-4 bg-zinc-900 border border-zinc-800 hover:border-[#00ff41]/30 transition-all group"
+                              className={`flex items-center justify-between p-4 bg-zinc-900 border border-zinc-800 transition-all group ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'hover:border-[#ff4444]/30' : 'hover:border-[#00ff41]/30'}`}
                             >
                               <div className="text-left">
                                 <span className="text-[11px] font-mono font-black uppercase text-white block">{phase.label}</span>
@@ -870,7 +1192,7 @@ if __name__ == '__main__':
                         }
                       }}
                       disabled={!allItemsChecked}
-                      className={`w-full py-6 font-display font-black uppercase tracking-widest text-xl flex items-center justify-center gap-4 transition-all italic ${allItemsChecked ? 'bg-[#00ff41] text-black shadow-[0_0_40px_rgba(0,255,65,0.4)] hover:scale-[1.02]' : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'}`}
+                      className={`w-full py-6 font-display font-black uppercase tracking-widest text-xl flex items-center justify-center gap-4 transition-all italic ${allItemsChecked ? (selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444] text-black shadow-[0_0_40px_rgba(255,68,68,0.4)] hover:scale-[1.02]' : 'bg-[#00ff41] text-black shadow-[0_0_40px_rgba(0,255,65,0.4)] hover:scale-[1.02]') : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'}`}
                     >
                       GENERATE MVK PACKAGE <ArrowRight size={24} />
                     </button>
@@ -891,7 +1213,7 @@ if __name__ == '__main__':
               <div className="flex justify-between items-end border-b border-zinc-800 pb-8">
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <span className="text-[9px] font-mono text-[#00ff41] uppercase tracking-[0.5em] font-bold">Step_03 // Kernel_Deployment</span>
+                    <span className={`text-[9px] font-mono ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'} uppercase tracking-[0.5em] font-bold`}>Step_03 // Kernel_Deployment</span>
                   </div>
                   <h2 className="text-3xl font-display font-black uppercase tracking-tightest text-white italic leading-none">MVK_Kernel_Deployment</h2>
                   <p className="text-sm text-zinc-500 leading-relaxed font-sans">Download and deploy the generated safety kernel to your target hardware.</p>
@@ -900,7 +1222,7 @@ if __name__ == '__main__':
                    <div className="px-6 py-3 bg-zinc-900 border border-zinc-800 text-zinc-500 font-mono text-[9px] uppercase tracking-widest font-bold">
                     Build: v5.0-HTM
                   </div>
-                  <div className="px-6 py-3 bg-[#00ff41]/10 border border-[#00ff41]/30 text-[#00ff41] font-display font-black italic text-xs uppercase tracking-widest">
+                  <div className={`px-6 py-3 border font-display font-black italic text-xs uppercase tracking-widest ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444]/10 border-[#ff4444]/30 text-[#ff4444]' : 'bg-[#00ff41]/10 border-[#00ff41]/30 text-[#00ff41]'}`}>
                     Status: {deploymentStatus.toUpperCase()}
                   </div>
                 </div>
@@ -909,24 +1231,26 @@ if __name__ == '__main__':
               <div className="grid grid-cols-12 gap-12 h-[600px]">
                 {/* CODE VIEW */}
                 <div className="col-span-7 flex flex-col border border-zinc-800 bg-black overflow-hidden relative">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-[#00ff41]/20"></div>
+                  <div className={`absolute top-0 left-0 w-1 h-full ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444]/20' : 'bg-[#00ff41]/20'}`}></div>
                   <div className="flex items-center justify-between p-6 border-b border-zinc-800 bg-zinc-900/30">
                     <div className="flex items-center gap-4">
-                      <FileCode className="text-[#00ff41]" size={24} />
-                      <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest">sentinel_mvk.py</span>
+                      <FileCode className={selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'} size={24} />
+                      <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest">
+                        {selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'sentinel_rocket_mvk.py' : 'sentinel_mvk.py'}
+                      </span>
                     </div>
                     <div className="flex gap-3">
-                      <button className="p-3 hover:bg-[#00ff41]/10 text-zinc-500 hover:text-[#00ff41] transition-colors" title="Copy Code">
+                      <button className={`p-3 hover:bg-zinc-800 text-zinc-500 transition-colors ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'hover:text-[#ff4444]' : 'hover:text-[#00ff41]'}`} title="Copy Code">
                         <Copy size={20} />
                       </button>
-                      <button className="p-3 hover:bg-[#00ff41]/10 text-zinc-500 hover:text-[#00ff41] transition-colors" title="Download File">
+                      <button className={`p-3 hover:bg-zinc-800 text-zinc-500 transition-colors ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'hover:text-[#ff4444]' : 'hover:text-[#00ff41]'}`} title="Download File">
                         <Download size={20} />
                       </button>
                     </div>
                   </div>
-                  <div className="flex-1 overflow-auto p-10 font-mono text-sm text-[#00ff41]/80 custom-scrollbar whitespace-pre leading-relaxed">
+                  <div className={`flex-1 overflow-auto p-10 font-mono text-sm custom-scrollbar whitespace-pre leading-relaxed ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]/80' : 'text-[#00ff41]/80'}`}>
                     {isGenerating ? (
-                      <div className="h-full flex flex-col items-center justify-center gap-8 text-[#00ff41]">
+                      <div className={`h-full flex flex-col items-center justify-center gap-8 ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'}`}>
                         <RefreshCw className="animate-spin" size={64} />
                         <span className="text-lg font-display uppercase tracking-[0.3em] font-black italic animate-pulse">Synthesizing Deterministic Logic...</span>
                       </div>
@@ -937,24 +1261,20 @@ if __name__ == '__main__':
                 {/* DEPLOYMENT & LOGS */}
                 <div className="col-span-5 flex flex-col gap-8">
                   <div className="bg-zinc-950 border border-zinc-800 p-10 space-y-10 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-[#00ff41]/20"></div>
+                    <div className={`absolute top-0 left-0 w-1 h-full ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444]/20' : 'bg-[#00ff41]/20'}`}></div>
                     <h3 className="text-xl font-display font-black uppercase text-white italic tracking-tighter">Deployment_Instructions</h3>
                     <div className="space-y-6 font-mono text-[10px] text-zinc-400 uppercase tracking-widest font-bold">
                       <div className="flex gap-6">
-                        <span className="text-[#00ff41] opacity-50">01</span>
-                        <p>Copy <span className="text-white">sentinel_mvk.py</span> to your robot's companion computer.</p>
+                        <span className={`${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'} opacity-50`}>01</span>
+                        <p>Copy <span className="text-white">{selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'sentinel_rocket_mvk.py' : 'sentinel_mvk.py'}</span> to your {selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'rocket\'s companion computer' : 'robot\'s companion computer'}.</p>
                       </div>
                       <div className="flex gap-6">
-                        <span className="text-[#00ff41] opacity-50">02</span>
-                        <p>Ensure ROS2 Foxy/Humble is sourced in your terminal.</p>
+                        <span className={`${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'} opacity-50`}>02</span>
+                        <p>{selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'Initialize serial link to avionics stack.' : 'Verify ROS2 connection to hardware topics.'}</p>
                       </div>
                       <div className="flex gap-6">
-                        <span className="text-[#00ff41] opacity-50">03</span>
-                        <p>Run: <span className="text-white bg-black px-3 py-1.5 border border-zinc-800">python3 sentinel_mvk.py</span></p>
-                      </div>
-                      <div className="flex gap-6">
-                        <span className="text-[#00ff41] opacity-50">04</span>
-                        <p>Sentinel will automatically intercept <span className="text-white">/cmd_vel_raw</span>.</p>
+                        <span className={`${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'} opacity-50`}>03</span>
+                        <p>Run <span className="text-white">python3 {selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'sentinel_rocket_mvk.py' : 'sentinel_mvk.py'}</span> to engage governance.</p>
                       </div>
                     </div>
                     
@@ -962,7 +1282,7 @@ if __name__ == '__main__':
                       <div className="space-y-6 pt-6">
                         <button 
                           onClick={startDeployment}
-                          className="w-full py-6 bg-white text-black font-display font-black uppercase tracking-widest text-xl hover:bg-[#00ff41] transition-all flex items-center justify-center gap-6 italic shadow-[0_0_25px_rgba(255,255,255,0.1)] hover:shadow-[0_0_40px_rgba(0,255,65,0.4)]"
+                          className={`w-full py-6 font-display font-black uppercase tracking-widest text-xl transition-all flex items-center justify-center gap-6 italic ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-white text-black hover:bg-[#ff4444] shadow-[0_0_25px_rgba(255,255,255,0.1)] hover:shadow-[0_0_40px_rgba(255,68,68,0.4)]' : 'bg-white text-black hover:bg-[#00ff41] shadow-[0_0_25px_rgba(255,255,255,0.1)] hover:shadow-[0_0_40px_rgba(0,255,65,0.4)]'}`}
                         >
                           Simulate Deployment <Zap size={24} />
                         </button>
@@ -977,13 +1297,14 @@ if __name__ == '__main__':
                   </div>
 
                   <div className="flex-1 bg-black border border-zinc-800 flex flex-col overflow-hidden relative">
+                    <div className={`absolute top-0 left-0 w-1 h-full ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444]/20' : 'bg-[#00ff41]/20'}`}></div>
                     <div className="p-6 border-b border-zinc-800 bg-zinc-900/30 flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        <Terminal size={20} className="text-[#00ff41]" />
+                        <Terminal size={20} className={selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'} />
                         <span className="text-[10px] font-mono font-black uppercase text-white tracking-widest italic">Kernel_Live_Monitor</span>
                       </div>
                       <div className="flex gap-3">
-                        <div className="w-3 h-3 rounded-full bg-[#00ff41] animate-pulse shadow-[0_0_15px_rgba(0,255,65,0.6)]" />
+                        <div className={`w-3 h-3 rounded-full animate-pulse ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444] shadow-[0_0_15px_rgba(255,68,68,0.6)]' : 'bg-[#00ff41] shadow-[0_0_15px_rgba(0,255,65,0.6)]'}`} />
                       </div>
                     </div>
                     <div 
@@ -991,13 +1312,13 @@ if __name__ == '__main__':
                       className="flex-1 p-8 font-mono text-[10px] space-y-3 overflow-y-auto custom-scrollbar leading-relaxed"
                     >
                       {logs.map((log, i) => (
-                        <div key={i} className={`flex gap-6 ${log && typeof log === 'string' && log.startsWith('[MVK]') ? 'text-[#00ff41]' : 'text-zinc-600'}`}>
+                        <div key={i} className={`flex gap-6 ${log && typeof log === 'string' && log.startsWith('[MVK]') ? (selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]') : 'text-zinc-600'}`}>
                           <span className="opacity-20">[{new Date().toLocaleTimeString()}]</span>
                           <span className="font-bold tracking-tight">{log}</span>
                         </div>
                       ))}
                       {deploymentStatus === 'deploying' && (
-                        <div className="flex gap-6 text-[#00ff41] animate-pulse">
+                        <div className={`flex gap-6 animate-pulse ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'}`}>
                           <span className="opacity-20">[{new Date().toLocaleTimeString()}]</span>
                           <span className="font-bold">_</span>
                         </div>
@@ -1016,19 +1337,19 @@ if __name__ == '__main__':
         <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-zinc-800 to-transparent"></div>
         <div className="flex gap-16">
           <div className="flex items-center gap-4 group">
-            <ShieldCheck size={20} className="text-[#00ff41] opacity-40 group-hover:opacity-100 transition-opacity" />
-            <span className="text-[11px] font-mono text-zinc-700 group-hover:text-[#00ff41] uppercase font-black tracking-[0.2em] transition-colors">MVK: Layer_Zero_Active</span>
+            <ShieldCheck size={20} className={`${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'} opacity-40 group-hover:opacity-100 transition-opacity`} />
+            <span className={`text-[11px] font-mono text-zinc-700 ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'group-hover:text-[#ff4444]' : 'group-hover:text-[#00ff41]'} uppercase font-black tracking-[0.2em] transition-colors`}>MVK: Layer_Zero_Active</span>
           </div>
           <div className="flex items-center gap-4 group">
             <Clock size={20} className="text-amber-500 opacity-40 group-hover:opacity-100 transition-opacity" />
             <span className="text-[11px] font-mono text-zinc-700 group-hover:text-amber-500 uppercase font-black tracking-[0.2em] transition-colors">PTP: [LOCAL CLOCK]</span>
           </div>
           <div className="flex items-center gap-4 group">
-            <Database size={20} className="text-[#00ff41] opacity-40 group-hover:opacity-100 transition-opacity" />
-            <span className="text-[11px] font-mono text-zinc-700 group-hover:text-[#00ff41] uppercase font-black tracking-[0.2em] transition-colors">Storage: 94%_Available</span>
+            <Database size={20} className={`${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'} opacity-40 group-hover:opacity-100 transition-opacity`} />
+            <span className={`text-[11px] font-mono text-zinc-700 ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'group-hover:text-[#ff4444]' : 'group-hover:text-[#00ff41]'} uppercase font-black tracking-[0.2em] transition-colors`}>Storage: 94%_Available</span>
           </div>
         </div>
-        <div className="text-[11px] font-mono text-[#00ff41] font-black uppercase tracking-[0.5em] italic opacity-60">
+        <div className={`text-[11px] font-mono ${selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'text-[#ff4444]' : 'text-[#00ff41]'} font-black uppercase tracking-[0.5em] italic opacity-60`}>
           Sentinel_Safety_Kernel // Hardware_Test_Protocol_v5.0
         </div>
       </div>
