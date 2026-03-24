@@ -34,8 +34,8 @@ const FormalVerificationPanel: React.FC<FormalVerificationPanelProps> = ({ statu
           L8: Formal_Verification_Kernel
         </h2>
         <div className="flex items-center gap-1">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#00ff41] animate-pulse"></div>
-          <span className="text-[10px] text-[#00ff41] uppercase font-bold">Verified</span>
+          <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
+          <span className="text-[10px] text-amber-500 uppercase font-bold">[PROOF PENDING]</span>
         </div>
       </div>
 
@@ -67,18 +67,18 @@ const FormalVerificationPanel: React.FC<FormalVerificationPanelProps> = ({ statu
         <div className="grid grid-cols-1 gap-2">
           <div className="flex items-center justify-between p-2 bg-zinc-950/40 border border-zinc-800">
             <div className="flex items-center gap-2">
-              <CheckCircle2 size={12} className="text-[#00ff41]" />
+              <CheckCircle2 size={12} className="text-amber-500" />
               <span className="text-[10px] text-zinc-300 uppercase">Interval_Lyapunov_Tube</span>
             </div>
-            <span className="text-xs bg-[#00ff41]/10 text-[#00ff41] px-1 border border-[#00ff41]/20 uppercase font-bold">Proved</span>
+            <span className="text-xs bg-amber-500/10 text-amber-500 px-1 border border-amber-500/20 uppercase font-bold">[PENDING]</span>
           </div>
           
           <div className="flex items-center justify-between p-2 bg-zinc-950/40 border border-zinc-800">
             <div className="flex items-center gap-2">
-              <CheckCircle2 size={12} className="text-[#00ff41]" />
+              <CheckCircle2 size={12} className="text-amber-500" />
               <span className="text-[10px] text-zinc-300 uppercase">Convex_Projection_Safety</span>
             </div>
-            <span className="text-xs bg-[#00ff41]/10 text-[#00ff41] px-1 border border-[#00ff41]/20 uppercase font-bold">Proved</span>
+            <span className="text-xs bg-amber-500/10 text-amber-500 px-1 border border-amber-500/20 uppercase font-bold">[PENDING]</span>
           </div>
         </div>
 

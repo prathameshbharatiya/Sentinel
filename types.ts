@@ -196,6 +196,13 @@ export interface MissionEvent {
   isSeparation?: boolean;
 }
 
+export enum MissionPhase {
+  TAKEOFF = 'TAKEOFF',
+  PAYLOAD_TRANSITION = 'PAYLOAD_TRANSITION',
+  LANDING = 'LANDING',
+  NOMINAL = 'NOMINAL'
+}
+
 export interface MissionPhaseState {
   currentEventId: string | null;
   nextEventId: string | null;
@@ -203,6 +210,9 @@ export interface MissionPhaseState {
   isPreparing: boolean;
   isTransitioning: boolean;
   tau_prepare: number;
+  activePhase: MissionPhase;
+  phaseStartTime: number;
+  phaseDuration: number;
 }
 
 export enum PlatformType {
@@ -405,6 +415,10 @@ export interface RobotHealth {
   consensusState: ConsensusState;
   ptpStatus: PtpStatus;
   missionPhase: MissionPhaseState;
+  shadowDivergence: number;
+  heartbeatChainCount: number;
+  lastHeartbeatHash: string;
+  ptpJitterMs: number;
   platform: PlatformDescriptor;
   verification: VerificationStatus;
   compliance: ComplianceStatus;

@@ -14,15 +14,12 @@ const FleetConsensusMap: React.FC<FleetConsensusMapProps> = ({ state, ownPositio
     <div className="border border-[#00ff41]/20 bg-zinc-900/20 p-3 flex flex-col h-full">
       <div className="flex items-center justify-between mb-2 border-b border-zinc-800 pb-1">
         <h2 className="font-black uppercase text-xs flex items-center gap-2">
-          <div className="w-2 h-2 bg-[#00ff41] animate-pulse"></div>
-          L3: Fleet_Consensus_Map
+          <div className="w-2 h-2 bg-amber-500 animate-pulse"></div>
+          L3: [SINGLE NODE] Consensus
         </h2>
         <div className="flex gap-2">
-          <span className="text-[9px] text-emerald-400 uppercase">Trusted: {state.peers.filter(p => p.status === 'TRUSTED').length}</span>
-          <span className="text-[9px] text-rose-400 uppercase">Byzantine: {state.peers.filter(p => p.status !== 'TRUSTED').length}</span>
-          <span className={`text-[9px] font-bold uppercase ${state.quorumReached ? 'text-emerald-400' : 'text-rose-400'}`}>
-            Quorum: {state.ackCount}/{state.requiredQuorum}
-          </span>
+          <span className="text-[9px] text-zinc-500 uppercase">Peers: 0</span>
+          <span className="text-[9px] text-amber-500 uppercase font-bold">[SINGLE NODE]</span>
         </div>
       </div>
 
@@ -112,9 +109,9 @@ const FleetConsensusMap: React.FC<FleetConsensusMapProps> = ({ state, ownPositio
 
       <div className="mt-2 space-y-1">
         <div className="flex justify-between text-[10px]">
-          <span className="opacity-40 uppercase">Global_Consensus</span>
-          <span className={state.byzantineStatus === 'TRUSTED' ? 'text-emerald-400' : 'text-rose-400'}>
-            {state.byzantineStatus}
+          <span className="opacity-40 uppercase">Consensus_Protocol</span>
+          <span className="text-amber-500 font-bold uppercase">
+            [SINGLE NODE]
           </span>
         </div>
         {state.resolvedIntent && (

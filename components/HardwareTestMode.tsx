@@ -506,11 +506,15 @@ if __name__ == '__main__':
               </div>
               <div className="flex justify-between items-center text-[10px] font-mono uppercase tracking-widest group">
                 <span className="text-zinc-700 group-hover:text-zinc-500 transition-colors">Clock_Sync_PTP</span>
-                <span className="text-[#00ff41] font-black">LOCKED_±4ns</span>
+                <span className="text-amber-500 font-black">[LOCAL CLOCK]</span>
               </div>
               <div className="flex justify-between items-center text-[10px] font-mono uppercase tracking-widest group">
-                <span className="text-zinc-700 group-hover:text-zinc-500 transition-colors">Kernel_Integrity</span>
-                <span className="text-[#00ff41] font-black">VERIFIED</span>
+                <span className="text-zinc-700 group-hover:text-zinc-500 transition-colors">Formal_Proofs</span>
+                <span className="text-amber-500 font-black">[PROOF PENDING]</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px] font-mono uppercase tracking-widest group">
+                <span className="text-zinc-700 group-hover:text-zinc-500 transition-colors">Consensus_Mode</span>
+                <span className="text-amber-500 font-black">[SINGLE NODE]</span>
               </div>
             </div>
           </div>
@@ -815,12 +819,41 @@ if __name__ == '__main__':
                           ></div>
                         </div>
                       </div>
-                      <div className="p-4 bg-[#00ff41]/5 border border-[#00ff41]/20">
+                    <div className="p-4 bg-[#00ff41]/5 border border-[#00ff41]/20">
                         <div className="flex gap-3 text-[#00ff41]">
                           <AlertTriangle size={20} className="shrink-0" />
                           <p className="text-[9px] font-mono uppercase leading-relaxed font-bold tracking-widest">
                             Hardware Test Mode enforces a hard 50% velocity ceiling regardless of user input.
                           </p>
+                        </div>
+                      </div>
+
+                      {/* MISSION PHASE CONFIGURATION */}
+                      <div className="pt-6 border-t border-zinc-900 space-y-6">
+                        <h3 className="text-xs font-mono font-black uppercase text-zinc-500 tracking-widest">Mission_Phase_Configuration</h3>
+                        <div className="grid grid-cols-1 gap-4">
+                          {[
+                            { id: 'TAKEOFF', label: 'Takeoff Phase', desc: 'Tighter delta, high RLS innovation' },
+                            { id: 'PAYLOAD_TRANSITION', label: 'Payload Transition', desc: 'Fault suppression active' },
+                            { id: 'LANDING', label: 'Landing Phase', desc: 'Maximum Lyapunov alpha' }
+                          ].map(phase => (
+                            <button
+                              key={phase.id}
+                              onClick={() => {
+                                // In a real app, this would update the runtime
+                                // For now, we just simulate the UI state
+                              }}
+                              className="flex items-center justify-between p-4 bg-zinc-900 border border-zinc-800 hover:border-[#00ff41]/30 transition-all group"
+                            >
+                              <div className="text-left">
+                                <span className="text-[11px] font-mono font-black uppercase text-white block">{phase.label}</span>
+                                <span className="text-[9px] font-mono uppercase text-zinc-600 tracking-wider">{phase.desc}</span>
+                              </div>
+                              <div className="w-10 h-5 bg-zinc-800 rounded-full relative p-1">
+                                <div className="w-3 h-3 bg-zinc-600 rounded-full"></div>
+                              </div>
+                            </button>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -987,8 +1020,8 @@ if __name__ == '__main__':
             <span className="text-[11px] font-mono text-zinc-700 group-hover:text-[#00ff41] uppercase font-black tracking-[0.2em] transition-colors">MVK: Layer_Zero_Active</span>
           </div>
           <div className="flex items-center gap-4 group">
-            <Clock size={20} className="text-[#00ff41] opacity-40 group-hover:opacity-100 transition-opacity" />
-            <span className="text-[11px] font-mono text-zinc-700 group-hover:text-[#00ff41] uppercase font-black tracking-[0.2em] transition-colors">PTP: Master_Clock_LOCKED</span>
+            <Clock size={20} className="text-amber-500 opacity-40 group-hover:opacity-100 transition-opacity" />
+            <span className="text-[11px] font-mono text-zinc-700 group-hover:text-amber-500 uppercase font-black tracking-[0.2em] transition-colors">PTP: [LOCAL CLOCK]</span>
           </div>
           <div className="flex items-center gap-4 group">
             <Database size={20} className="text-[#00ff41] opacity-40 group-hover:opacity-100 transition-opacity" />

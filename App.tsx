@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { SentinelRuntime } from './services/SentinelRuntime';
-import { RobotState, RobotHealth, HazardLevel, RuntimeMode, IntentType, RobotIntent, RobotTopology, PlatformType, IndustryProfile, PreflightStatus } from './types';
+import { RobotState, RobotHealth, HazardLevel, RuntimeMode, IntentType, RobotIntent, RobotTopology, PlatformType, IndustryProfile, PreflightStatus, MissionPhase } from './types';
 import TelemetryChart from './components/TelemetryChart';
 import HealthMetric from './components/HealthMetric';
 import AdvisoryPanel from './components/AdvisoryPanel';
@@ -25,7 +25,7 @@ import JointGovernancePanel from './components/JointGovernancePanel';
 import TractionGovernancePanel from './components/TractionGovernancePanel';
 import RocketEnginePanel from './components/RocketEnginePanel';
 import HardwareTestMode from './components/HardwareTestMode';
-import { Terminal, ShieldCheck, Cpu, Loader2, CheckCircle2, ArrowRight, Zap } from 'lucide-react';
+import { Terminal, ShieldCheck, Cpu, Loader2, CheckCircle2, ArrowRight, Zap, Shield, Package } from 'lucide-react';
 
 const PaperContent = `
 SENTINEL V5.0: A UNIVERSAL NEURAL-SYMBOLIC GOVERNOR FOR ZERO-TRUST ROBOTIC AUTONOMY
@@ -1091,6 +1091,8 @@ const App: React.FC = () => {
                <span className={health?.runtimeMode === RuntimeMode.NORMAL ? 'text-emerald-400' : 'text-rose-400 font-bold'}>
                  KERNEL_{health?.runtimeMode.toUpperCase()}
                </span>
+               <span className="text-emerald-400 font-black uppercase">[{health?.missionPhase.activePhase} PHASE]</span>
+               <span className="text-white font-black">δ: <span className={health?.metadata.topologyDelta < 1.0 ? 'text-rose-500' : 'text-emerald-400'}>{health?.metadata.topologyDelta.toFixed(2)}</span></span>
                <span className="opacity-40">WCET: {health?.wcet_ms.toFixed(3)}ms</span>
                {health?.executionMode === '10kHz' && (
                  <span className="text-amber-400 font-bold">FAST_LOOP: {health?.innerLoopWCET.toFixed(1)}μs</span>
@@ -1187,6 +1189,22 @@ const App: React.FC = () => {
                <p className="text-[9px] text-zinc-500 leading-tight uppercase">
                  The Safety Kernel runs locally on the edge. AI is utilized only for natural language reconciliation and forensic audit.
                </p>
+               <div className="mt-3 grid grid-cols-2 gap-2">
+                 <button 
+                   onClick={() => sentinelRef.current.setIntent({ type: IntentType.STABILIZE, priority: 'HIGH', timestamp: Date.now() })}
+                   className="flex items-center justify-center gap-2 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white text-[9px] font-bold uppercase transition-colors border border-zinc-700"
+                 >
+                   <Shield size={12} />
+                   Stabilize
+                 </button>
+                 <button 
+                   onClick={() => sentinelRef.current.setMissionPhase(MissionPhase.PAYLOAD_TRANSITION, 15000)}
+                   className="flex items-center justify-center gap-2 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white text-[9px] font-bold uppercase transition-colors border border-zinc-700"
+                 >
+                   <Package size={12} />
+                   Payload
+                 </button>
+               </div>
             </div>
 
             <div className="shrink-0 h-80">
@@ -1347,9 +1365,19 @@ const App: React.FC = () => {
                 <div className="space-y-1.5">
                   <HealthMetric label="Torque_Util" value={health.actuators.torqueUtilization / 10} />
                   <div className="flex justify-between text-[10px]">
+                    <span className="opacity-40 uppercase">Shadow_Path</span>
+                    <span className="text-emerald-400 font-black">[ACTIVE]</span>
+                  </div>
+                  <div className="flex justify-between text-[10px]">
+                    <span className="opacity-40 uppercase">Shadow_Div</span>
+                    <span className={health.shadowDivergence > 0.1 ? 'text-rose-500 font-bold' : 'text-emerald-500 font-bold'}>
+                      {(health.shadowDivergence * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[10px]">
                     <span className="opacity-40 uppercase">Consensus</span>
-                    <span className={health.consensus.divergence > 10 ? 'text-rose-500 font-bold' : 'text-emerald-500 font-bold'}>
-                      {health.consensus.divergence > 10 ? 'DIVERGED' : 'SYNCED'}
+                    <span className="text-amber-500 font-bold uppercase">
+                      [SINGLE NODE]
                     </span>
                   </div>
                   <div className="flex justify-between text-[9px]">

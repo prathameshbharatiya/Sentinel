@@ -19,6 +19,7 @@ import {
   FaultDiagnosis,
   ConsensusState,
   MissionEvent,
+  MissionPhase,
   MissionPhaseState,
   RigidBodyParameters,
   PlatformType,
@@ -94,8 +95,24 @@ export class SentinelRuntime {
     timeToNextEvent: Infinity,
     isPreparing: false,
     isTransitioning: false,
-    tau_prepare: 500 // Default 500ms
+    tau_prepare: 500, // Default 500ms
+    activePhase: MissionPhase.NOMINAL,
+    phaseStartTime: Date.now(),
+    phaseDuration: 0
   };
+
+  // L2: Shadow Logic Path
+  private shadowLyapunovV = 0;
+  private shadowDivergence = 0;
+
+  // L5: SHA-256 Heartbeat
+  private heartbeatChainCount = 0;
+  private lastHeartbeatHash = "0x00000000";
+
+  // PTP Jitter Tracking
+  private ptpJitterMs = 0;
+  private ptpJitterHistory: number[] = [];
+  private lastMeasureTime = performance.now();
 
   // Task Timings
   private timing: { [key: string]: number } = {};
@@ -553,13 +570,96 @@ export class SentinelRuntime {
     this.updateAdvisoryScaling();
     this.updateDynamicDelta(state);
     this.updatePtpSync();
+    this.measureClockJitter();
     this.updateConsensusCommitment();
     this.updateMissionPhase();
+
+    // L2: Shadow Path Computation
+    this.shadowLyapunovV = this.computeLyapunovEnergyShadow(state);
+    const primaryV = this.computeSystemEnergy(state);
+    this.shadowDivergence = primaryV > 0 ? Math.abs(primaryV - this.shadowLyapunovV) / primaryV : 0;
+
+    if (this.shadowDivergence > 0.15) {
+      this.triggerFailure('Shadow Path Divergence', 'High Risk', HazardLevel.STABILITY_DEGRADATION, `Shadow Lyapunov path diverged from primary by ${(this.shadowDivergence * 100).toFixed(1)}%. Bit-flip suspected.`);
+      this.mode = RuntimeMode.INTERNAL_FAULT;
+    }
+
+    // L2: Transonic Jitter Detection
+    if (this.topology === RobotTopology.ROCKET || this.topology === RobotTopology.QUADCOPTER) {
+      this.detectTransonicJitter(state);
+    }
+  }
+
+  private detectTransonicJitter(state: RobotState) {
+    const altitude = state.position[1];
+    const velocity = Math.abs(state.velocity[0]);
+    const soundSpeed = this.getSpeedOfSound(altitude);
+    const mach = velocity / soundSpeed;
+
+    // Transonic regime: 0.8 < Mach < 1.2
+    if (mach > 0.8 && mach < 1.2) {
+      const prevVel = this.history[this.history.length - 2]?.velocity[0] || 0;
+      const accel = (state.velocity[0] - prevVel) / 0.1;
+      
+      // Detect rapid oscillation in drag derivative (jitter)
+      if (Math.abs(accel) > 50 && this.bodies[0].lastResidual > 10) {
+        this.triggerFailure('Transonic Jitter', 'High Risk', HazardLevel.PERFORMANCE_DRIFT, 'Transonic jitter detected. Temporarily pausing RLS updates to prevent divergence.');
+        // Pause RLS for this body
+        this.bodies[0].lambda = 1.0; 
+      }
+    }
+  }
+
+  private computeLyapunovEnergyShadow(state: RobotState): number {
+    // Simplified shadow path: V = 0.5 * (x^2 + v^2)
+    // Does not use the P matrix to provide a truly independent check
+    return 0.5 * (state.position[0]**2 + state.velocity[0]**2);
+  }
+
+  public async logHeartbeat() {
+    this.heartbeatChainCount++;
+    const stateSummary = {
+      ts: Date.now(),
+      mode: this.mode,
+      phase: this.missionPhase.activePhase,
+      v: this.computeSystemEnergy(this.history[this.history.length - 1] || { position: [0], velocity: [0] } as any),
+      shadowDelta: this.shadowDivergence,
+      count: this.heartbeatChainCount,
+      prevHash: this.lastHeartbeatHash
+    };
+
+    const msgBuffer = new TextEncoder().encode(JSON.stringify(stateSummary));
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    this.lastHeartbeatHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  private measureClockJitter() {
+    const now = performance.now();
+    const dt = now - this.lastMeasureTime;
+    this.lastMeasureTime = now;
+
+    // Expected dt is 100ms (based on typical dashboard update rate)
+    // We measure deviation from expected interval
+    const jitter = Math.abs(dt - 100);
+    this.ptpJitterHistory.push(jitter);
+    if (this.ptpJitterHistory.length > 100) this.ptpJitterHistory.shift();
+
+    this.ptpJitterMs = this.ptpJitterHistory.reduce((a, b) => a + b, 0) / this.ptpJitterHistory.length;
   }
 
   private updateMissionPhase() {
     const missionTime = Date.now() - this.missionStartTime;
     
+    // Mission Phase Logic
+    if (this.missionPhase.activePhase !== MissionPhase.NOMINAL) {
+      const elapsed = Date.now() - this.missionPhase.phaseStartTime;
+      if (elapsed > this.missionPhase.phaseDuration && this.missionPhase.phaseDuration > 0) {
+        this.missionPhase.activePhase = MissionPhase.NOMINAL;
+        this.triggerFailure('Mission Phase Complete', 'Nominal', HazardLevel.NONE, 'Active mission phase completed. Returning to NOMINAL parameters.');
+      }
+    }
+
     // Find next event
     const nextEvent = this.missionTimeline.find(e => e.timestamp > missionTime);
     const currentEvent = [...this.missionTimeline].reverse().find(e => e.timestamp <= missionTime);
@@ -650,6 +750,10 @@ export class SentinelRuntime {
       case RobotTopology.LINEAR_ACTUATOR: baseDelta = 2.0; break;
     }
 
+    // L6: Mission Phase Adjustments
+    if (this.missionPhase.activePhase === MissionPhase.TAKEOFF) baseDelta *= 0.7; // Tighter during takeoff
+    if (this.missionPhase.activePhase === MissionPhase.LANDING) baseDelta *= 0.5; // Very tight during landing
+
     // 1. Velocity Scaling (Higher speed = Tighter constraints)
     const velMag = Math.sqrt(state.velocity.reduce((sum, v) => sum + v * v, 0));
     const velFactor = 1.0 + (velMag * 0.5);
@@ -672,7 +776,7 @@ export class SentinelRuntime {
     this.METADATA.topologyDelta = baseDelta / (velFactor * uncertaintyFactor * proximityFactor);
     
     // Ensure a minimum floor for delta to prevent total lock-up
-    this.METADATA.topologyDelta = Math.max(0.5, this.METADATA.topologyDelta);
+    this.METADATA.topologyDelta = Math.max(0.15, Math.min(0.90, this.METADATA.topologyDelta));
   }
 
   public setIntent(intent: RobotIntent) {
@@ -1121,6 +1225,10 @@ export class SentinelRuntime {
         lastSyncTime: this.lastSyncTime
       },
       missionPhase: this.missionPhase,
+      shadowDivergence: this.shadowDivergence,
+      heartbeatChainCount: this.heartbeatChainCount,
+      lastHeartbeatHash: this.lastHeartbeatHash,
+      ptpJitterMs: this.ptpJitterMs,
       platform: this.hal.getPlatformDescriptor(),
       verification: this.verification,
       compliance: this.compliance,
@@ -1332,6 +1440,13 @@ export class SentinelRuntime {
         altitude
       }
     };
+  }
+
+  public setMissionPhase(phase: MissionPhase, durationMs: number) {
+    this.missionPhase.activePhase = phase;
+    this.missionPhase.phaseStartTime = Date.now();
+    this.missionPhase.phaseDuration = durationMs;
+    this.triggerFailure('Mission Phase Transition', 'Nominal', HazardLevel.NONE, `Switched to ${phase} phase for ${durationMs}ms.`);
   }
 
   public getAdvisory(): HealthAdvisory {

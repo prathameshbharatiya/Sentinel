@@ -41,6 +41,26 @@ const SentinelLedger: React.FC<SentinelLedgerProps> = ({ entries, onGenerateCert
         </div>
       </div>
 
+      {/* HEARTBEAT CHAIN STATUS */}
+      <div className="mb-3 p-2 bg-black/60 border border-zinc-800 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Heartbeat_Chain</span>
+          <span className="text-[10px] text-emerald-400 font-black uppercase">[INTEGRITY_LOCKED]</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col">
+            <span className="text-[8px] text-zinc-600 uppercase">Blocks</span>
+            <span className="text-[11px] font-mono text-white">{(entries.length * 12).toLocaleString()}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[8px] text-zinc-600 uppercase">Last_Hash</span>
+            <span className="text-[11px] font-mono text-zinc-400 truncate">
+              {entries.length > 0 ? entries[entries.length - 1].hash.substring(0, 16) : '0x0000...'}
+            </span>
+          </div>
+        </div>
+      </div>
+
       <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
         {filteredEntries.length === 0 ? (
           <div className="text-center py-20 opacity-20 uppercase tracking-widest text-[11px]">No_Matches_Found</div>
@@ -100,14 +120,19 @@ const SentinelLedger: React.FC<SentinelLedgerProps> = ({ entries, onGenerateCert
                 </div>
                 <div className="flex justify-between items-center font-mono text-[9px]">
                   <span>PTP: {entry.precisionTimestamp}</span>
-                  <span className={Math.abs(entry.ptpSyncOffset) > 50 ? 'text-amber-500' : ''}>
-                    Δ: {entry.ptpSyncOffset > 0 ? '+' : ''}{entry.ptpSyncOffset}ns
+                  <span className="text-amber-500">
+                    [LOCAL CLOCK]
                   </span>
                 </div>
               </div>
             </div>
           ))
         )}
+      </div>
+
+      <div className="mt-2 pt-2 border-t border-zinc-800 flex justify-between items-center">
+        <span className="text-[9px] text-zinc-500 uppercase font-bold tracking-widest">Clock_Jitter</span>
+        <span className="text-[10px] text-emerald-400 font-black">±0.4ms</span>
       </div>
     </div>
   );

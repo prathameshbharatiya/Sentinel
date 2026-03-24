@@ -59,7 +59,72 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [interactionCount, setInteractionCount] = useState(0);
+  const [parserStatus, setParserStatus] = useState<'NEURAL' | 'SYMBOLIC' | 'DIVERGENCE' | 'BLOCKED'>('NEURAL');
+  const [coherenceWarning, setCoherenceWarning] = useState<string | null>(null);
+  const [intentHistory, setIntentHistory] = useState<{intent: string, timestamp: number}[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const sentinelSymbolicParser = (userInput: string) => {
+    const input = userInput.toLowerCase();
+    const result = {
+      topology: null as string | null,
+      industry: null as string | null,
+      safetyViolation: false,
+      feasibility: 1.0
+    };
+
+    if (input.includes('quadcopter') || input.includes('drone')) result.topology = "Quadcopter (3D-Flight)";
+    if (input.includes('rocket') || input.includes('launch')) result.topology = "Rocket (Vertical Ascent)";
+    if (input.includes('rover') || input.includes('car')) result.topology = "Mobile Rover (2D-Traction)";
+    if (input.includes('arm') || input.includes('manipulator')) result.topology = "Robotic Arm (2-DOF)";
+    if (input.includes('evtol')) result.topology = "eVTOL (Multi-Rotor Flight)";
+
+    // Safety violations (e.g., asking to disable safety)
+    if (input.includes('disable safety') || input.includes('remove limits') || input.includes('bypass lyapunov')) {
+      result.safetyViolation = true;
+    }
+
+    return result;
+  };
+
+  const checkIntegrationDivergence = (aiResponse: string, symbolicResult: any) => {
+    const configMatch = aiResponse.match(/\[SENTINEL_CONFIG:\s*({.*?})\]/);
+    if (!configMatch) return false;
+
+    try {
+      const aiConfig = JSON.parse(configMatch[1]);
+      if (symbolicResult.topology && aiConfig.topology !== symbolicResult.topology) {
+        return true; // Divergence in topology
+      }
+    } catch (e) {
+      return true;
+    }
+    return false;
+  };
+
+  const checkConversationCoherence = (newInput: string) => {
+    const now = Date.now();
+    const recentIntents = intentHistory.filter(h => now - h.timestamp < 60000);
+    const input = newInput.toLowerCase();
+
+    // 1. Rapid platform switching
+    const hasQuadcopter = recentIntents.some(h => h.intent.includes('quadcopter') || h.intent.includes('drone'));
+    const hasRocket = input.includes('rocket') || input.includes('launch');
+    if (hasQuadcopter && hasRocket) return "Rapid platform switch detected (Quadcopter -> Rocket). Verify mission parameters.";
+
+    // 2. Safety reduction request after code generation
+    const hasCodeGen = messages.some(m => m.role === 'assistant' && m.content.includes('```'));
+    if (hasCodeGen && (input.includes('lower safety') || input.includes('reduce margin'))) {
+      return "Adversarial intent suspected: Safety reduction requested after code generation.";
+    }
+
+    // 3. Confused command sequence
+    if (recentIntents.length > 5 && (input.includes('what') || input.includes('how'))) {
+      return "High entropy command sequence. Resetting integration context recommended.";
+    }
+
+    return null;
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -133,6 +198,24 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
     setInput('');
     setIsTyping(true);
     setInteractionCount(prev => prev + 1);
+    setIntentHistory(prev => [...prev, { intent: input, timestamp: Date.now() }].slice(-20));
+
+    // L1: Coherence Check
+    const coherenceIssue = checkConversationCoherence(input);
+    setCoherenceWarning(coherenceIssue);
+
+    // L0: Symbolic Parse
+    const symbolicResult = sentinelSymbolicParser(input);
+    if (symbolicResult.safetyViolation) {
+      setParserStatus('BLOCKED');
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: "✕ INTEGRATION BLOCKED: Safety violation detected in command intent. Sentinel cannot generate configurations that bypass Lyapunov boundaries.",
+        timestamp: Date.now()
+      }]);
+      setIsTyping(false);
+      return;
+    }
 
     try {
       const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
@@ -232,9 +315,26 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
         }
       });
 
+      const aiContent = response.text || "Error: Kernel timed out. Please retry command.";
+      
+      // L0: Divergence Check
+      const isDivergent = checkIntegrationDivergence(aiContent, symbolicResult);
+      if (isDivergent) {
+        setParserStatus('DIVERGENCE');
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: "▲ DIVERGENCE DETECTED: Neural engine proposed a configuration that conflicts with Symbolic Parser results. Manual verification required.",
+          timestamp: Date.now()
+        }]);
+        setIsTyping(false);
+        return;
+      }
+
+      setParserStatus('NEURAL');
+
       const aiMessage: Message = {
         role: 'assistant',
-        content: response.text || "Error: Kernel timed out. Please retry command.",
+        content: aiContent,
         timestamp: Date.now()
       };
 
@@ -308,6 +408,23 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
         <div className="flex items-center gap-2">
           <Terminal size={14} className="text-[#00ff41]" />
           <span className="text-zinc-400 uppercase tracking-widest text-[11px] font-bold">Sentinel_Integration_Terminal_v5.0</span>
+          <div className="ml-4 flex items-center gap-2 px-2 py-0.5 bg-black border border-zinc-800 rounded-full">
+            <div className={`w-1.5 h-1.5 rounded-full ${
+              parserStatus === 'NEURAL' ? 'bg-[#00ff41]' : 
+              parserStatus === 'SYMBOLIC' ? 'bg-blue-500' : 
+              parserStatus === 'DIVERGENCE' ? 'bg-amber-500' : 'bg-rose-500'
+            }`} />
+            <span className={`text-[9px] font-bold ${
+              parserStatus === 'NEURAL' ? 'text-[#00ff41]' : 
+              parserStatus === 'SYMBOLIC' ? 'text-blue-500' : 
+              parserStatus === 'DIVERGENCE' ? 'text-amber-500' : 'text-rose-500'
+            }`}>
+              {parserStatus === 'NEURAL' && '▣ NEURAL + SYMBOLIC'}
+              {parserStatus === 'SYMBOLIC' && '▣ SYMBOLIC ONLY'}
+              {parserStatus === 'DIVERGENCE' && '▲ DIVERGENCE DETECTED'}
+              {parserStatus === 'BLOCKED' && '✕ BLOCKED — SAFETY VIOLATION'}
+            </span>
+          </div>
         </div>
         <div className="flex gap-1.5">
           <div className="w-2 h-2 rounded-full bg-zinc-800"></div>
@@ -321,6 +438,12 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
         ref={scrollRef}
         className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-[radial-gradient(circle_at_center,rgba(0,255,65,0.03)_0%,transparent_100%)]"
       >
+        {coherenceWarning && (
+          <div className="p-2 bg-amber-950/30 border border-amber-900/50 rounded flex items-center gap-2 text-amber-500 text-[11px] animate-pulse">
+            <AlertTriangle size={12} />
+            <span>⚠ COHERENCE WARNING: {coherenceWarning}</span>
+          </div>
+        )}
         {messages.map((msg, i) => (
           <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
             <div className={`max-w-[90%] p-3 rounded-sm ${
