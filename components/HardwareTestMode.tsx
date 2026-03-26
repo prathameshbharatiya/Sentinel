@@ -34,9 +34,12 @@ import {
 interface HardwareTestModeProps {
   onClose: () => void;
   onDeploy: (config: MvkConfig) => void;
+  user: any;
+  userProfile: any;
+  onConsumeTrial: () => void;
 }
 
-const HardwareTestMode: React.FC<HardwareTestModeProps> = ({ onClose, onDeploy }) => {
+const HardwareTestMode: React.FC<HardwareTestModeProps> = ({ onClose, onDeploy, user, userProfile, onConsumeTrial }) => {
   const [htmScreen, setHtmScreen] = useState<1 | 2 | 3>(1);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<HardwarePlatform | null>(null);
@@ -193,6 +196,12 @@ const HardwareTestMode: React.FC<HardwareTestModeProps> = ({ onClose, onDeploy }
 
   const generateMvkCode = () => {
     setIsGenerating(true);
+    
+    // Consume trial if not already used
+    if (userProfile && !userProfile.hasUsedTrial) {
+      onConsumeTrial();
+    }
+
     setTimeout(() => {
       let code = "";
       
@@ -1185,17 +1194,42 @@ if __name__ == '__main__':
                     <button 
                       onClick={() => {
                         if (allItemsChecked) {
+                          if (!user) {
+                            // Prompt for login or do nothing
+                            return;
+                          }
+                          if (userProfile?.hasUsedTrial) {
+                            // Already used trial, do nothing (button should be disabled anyway)
+                            return;
+                          }
                           generateMvkCode();
                         } else {
                           setShakeUnchecked(true);
                           setTimeout(() => setShakeUnchecked(false), 600);
                         }
                       }}
-                      disabled={!allItemsChecked}
-                      className={`w-full py-6 font-display font-black uppercase tracking-widest text-xl flex items-center justify-center gap-4 transition-all italic ${allItemsChecked ? (selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444] text-black shadow-[0_0_40px_rgba(255,68,68,0.4)] hover:scale-[1.02]' : 'bg-[#00ff41] text-black shadow-[0_0_40px_rgba(0,255,65,0.4)] hover:scale-[1.02]') : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'}`}
+                      disabled={!allItemsChecked || !user || (userProfile?.hasUsedTrial && htmScreen !== 3)}
+                      className={`w-full py-6 font-display font-black uppercase tracking-widest text-xl flex items-center justify-center gap-4 transition-all italic ${
+                        allItemsChecked 
+                          ? (!user || (userProfile?.hasUsedTrial && htmScreen !== 3)
+                              ? 'bg-rose-900/20 text-rose-500 border border-rose-500/30 cursor-not-allowed'
+                              : (selectedPlatform === HardwarePlatform.SOUNDING_ROCKET ? 'bg-[#ff4444] text-black shadow-[0_0_40px_rgba(255,68,68,0.4)] hover:scale-[1.02]' : 'bg-[#00ff41] text-black shadow-[0_0_40px_rgba(0,255,65,0.4)] hover:scale-[1.02]'))
+                          : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
+                      }`}
                     >
-                      GENERATE MVK PACKAGE <ArrowRight size={24} />
+                      {!user ? (
+                        <>LOGIN REQUIRED <Lock size={24} /></>
+                      ) : userProfile?.hasUsedTrial && htmScreen !== 3 ? (
+                        <>TRIAL EXPIRED <Lock size={24} /></>
+                      ) : (
+                        <>GENERATE MVK PACKAGE <ArrowRight size={24} /></>
+                      )}
                     </button>
+                    {(!user || (userProfile?.hasUsedTrial && htmScreen !== 3)) && (
+                      <p className="text-center text-[10px] font-mono text-rose-500/60 uppercase tracking-widest mt-2">
+                        {!user ? "Authentication required for MVK generation." : "One-time hardware testing trial consumed."}
+                      </p>
+                    )}
                     <button 
                       onClick={() => setHtmScreen(1)}
                       className="w-full py-4 border border-zinc-800 text-zinc-500 font-mono font-bold uppercase tracking-widest text-[10px] hover:bg-zinc-900 transition-colors italic"

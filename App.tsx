@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, LogOut, Lock, User as UserIcon, AlertCircle } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { SentinelRuntime } from './services/SentinelRuntime';
 import { RobotState, RobotHealth, HazardLevel, RuntimeMode, IntentType, RobotIntent, RobotTopology, PlatformType, IndustryProfile, PreflightStatus, MissionPhase } from './types';
@@ -26,6 +26,77 @@ import TractionGovernancePanel from './components/TractionGovernancePanel';
 import RocketEnginePanel from './components/RocketEnginePanel';
 import HardwareTestMode from './components/HardwareTestMode';
 import { Terminal, ShieldCheck, Cpu, Loader2, CheckCircle2, ArrowRight, Zap, Shield, Package } from 'lucide-react';
+
+// Firebase Imports
+import { auth, db, signInWithGoogle, logout } from './src/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot, getDocFromServer } from 'firebase/firestore';
+
+// --- FIRESTORE ERROR HANDLING ---
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null, currentUser?: User | null) {
+  const activeUser = currentUser || auth.currentUser;
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: activeUser?.uid,
+      email: activeUser?.email,
+      emailVerified: activeUser?.emailVerified,
+      isAnonymous: activeUser?.isAnonymous,
+      tenantId: activeUser?.tenantId,
+      providerInfo: activeUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+  } catch (error) {
+    if(error instanceof Error && error.message.includes('the client is offline')) {
+      console.error("Please check your Firebase configuration. ");
+    }
+  }
+}
+
+testConnection();
+// --- END FIRESTORE ERROR HANDLING ---
 
 const PaperContent = `
 SENTINEL V5.0: A UNIVERSAL NEURAL-SYMBOLIC GOVERNOR FOR ZERO-TRUST ROBOTIC AUTONOMY
@@ -134,7 +205,10 @@ const LandingPage: React.FC<{
   setView: (view: 'landing' | 'dashboard' | 'bridge') => void,
   handleTopologyChange: (t: RobotTopology) => void,
   handleIndustryChange: (i: IndustryProfile) => void,
-  onOpenHardwareTest: () => void
+  onOpenHardwareTest: () => void,
+  user: any,
+  onLogin: () => void,
+  onLogout: () => void
 }> = ({ 
   onEnter, 
   onFinishWizard, 
@@ -148,7 +222,10 @@ const LandingPage: React.FC<{
   setView,
   handleTopologyChange,
   handleIndustryChange,
-  onOpenHardwareTest
+  onOpenHardwareTest,
+  user,
+  onLogin,
+  onLogout
 }) => {
   const [activeTab, setActiveTab] = useState<'mission' | 'integration' | 'sdk' | 'configuration'>('mission');
   const [showPaper, setShowPaper] = useState(false);
@@ -457,12 +534,38 @@ const LandingPage: React.FC<{
                <span className="text-[9px] text-zinc-600 uppercase">Air-Gapped Determinism Verified</span>
              </div>
           </div>
-          <button 
-            onClick={onEnter}
-            className="w-full md:w-auto px-12 py-4 bg-white text-black font-black uppercase tracking-widest hover:bg-[#00ff41] transition-all transform hover:-translate-y-1"
-          >
-            Launch Observation Deck
-          </button>
+          
+          <div className="flex items-center gap-4 w-full md:w-auto">
+            {!user ? (
+              <button 
+                onClick={onLogin}
+                className="w-full md:w-auto px-12 py-4 bg-[#00ff41] text-black font-black uppercase tracking-widest hover:bg-white transition-all transform hover:-translate-y-1 flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(0,255,65,0.3)]"
+              >
+                <UserIcon size={20} />
+                Sign In with Google
+              </button>
+            ) : (
+              <div className="flex items-center gap-4 w-full md:w-auto">
+                <div className="hidden md:flex flex-col items-end mr-2">
+                  <span className="text-[10px] text-white font-bold uppercase tracking-widest">{user.displayName}</span>
+                  <span className="text-[8px] text-zinc-500 uppercase tracking-tighter">{user.email}</span>
+                </div>
+                <button 
+                  onClick={onLogout}
+                  className="p-4 border border-zinc-800 text-zinc-500 hover:text-rose-500 hover:border-rose-500/30 transition-all"
+                  title="Logout"
+                >
+                  <LogOut size={18} />
+                </button>
+                <button 
+                  onClick={onEnter}
+                  className="flex-1 md:flex-none px-12 py-4 bg-white text-black font-black uppercase tracking-widest hover:bg-[#00ff41] transition-all transform hover:-translate-y-1 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                >
+                  Launch Observation Deck
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -636,12 +739,102 @@ const App: React.FC = () => {
   const [platform, setPlatform] = useState<PlatformType>(PlatformType.X86_SIMULATION);
   const [isConfiguredViaAssistant, setIsConfiguredViaAssistant] = useState(false);
   
+  // Firebase & Auth States
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null); // null = checking
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   // New States for Hardware Bridge and Deployment
   const [isHardwareLinked, setIsHardwareLinked] = useState(false);
   const [preflightStatus, setPreflightStatus] = useState<PreflightStatus | null>(null);
   const [deploymentLogs, setDeploymentLogs] = useState<string[]>([]);
   const [isDeploying, setIsDeploying] = useState(false);
   const [isHardwareTestOpen, setIsHardwareTestOpen] = useState(false);
+
+  // Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(true);
+      
+      if (currentUser) {
+        try {
+          // 1. Check if email is authorized or is admin
+          const isAdmin = currentUser.email === 'prathameshshirbhate8anpc@gmail.com';
+          const authPath = 'authorized_emails';
+          const authQuery = query(collection(db, authPath), where('email', '==', currentUser.email));
+          let authSnap;
+          try {
+            authSnap = await getDocs(authQuery);
+          } catch (error) {
+            handleFirestoreError(error, OperationType.LIST, authPath, currentUser);
+            return;
+          }
+          
+          if (authSnap.empty && !isAdmin) {
+            setIsAuthorized(false);
+            setAuthLoading(false);
+            return;
+          }
+
+          setIsAuthorized(true);
+
+          // 2. Get or Create User Profile
+          const profilePath = `user_profiles/${currentUser.uid}`;
+          const profileRef = doc(db, 'user_profiles', currentUser.uid);
+          
+          // Use onSnapshot for real-time trial status updates
+          const unsubProfile = onSnapshot(profileRef, async (docSnap) => {
+            if (docSnap.exists()) {
+              setUserProfile(docSnap.data());
+            } else {
+              const newProfile = {
+                uid: currentUser.uid,
+                email: currentUser.email,
+                hasUsedTrial: false,
+                role: 'user',
+                createdAt: new Date().toISOString()
+              };
+              try {
+                await setDoc(profileRef, newProfile);
+              } catch (error) {
+                handleFirestoreError(error, OperationType.WRITE, profilePath, currentUser);
+              }
+              setUserProfile(newProfile);
+            }
+            setAuthLoading(false);
+          }, (error) => {
+            handleFirestoreError(error, OperationType.GET, profilePath, currentUser);
+          });
+
+          return () => unsubProfile();
+
+        } catch (error) {
+          console.error("Auth/Authorization Error:", error);
+          setIsAuthorized(false);
+          setAuthLoading(false);
+        }
+      } else {
+        setIsAuthorized(null);
+        setUserProfile(null);
+        setAuthLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleConsumeTrial = async () => {
+    if (!user || !userProfile) return;
+    const profilePath = `user_profiles/${user.uid}`;
+    try {
+      const profileRef = doc(db, 'user_profiles', user.uid);
+      await setDoc(profileRef, { hasUsedTrial: true }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, profilePath, user);
+    }
+  };
 
   const simStateRef = useRef<RobotState>({
     position: [0, 0, 0],
@@ -951,7 +1144,20 @@ const App: React.FC = () => {
     setView('bridge');
   };
 
-  if (view === 'onboarding') {
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center text-[#00ff41] font-mono p-6">
+        <div className="w-64 border border-[#00ff41]/20 p-1 bg-zinc-950">
+          <div className="h-1 bg-[#00ff41] animate-[shimmer_2s_infinite] w-full" />
+        </div>
+        <div className="mt-4 text-[10px] uppercase tracking-[0.2em] animate-pulse">
+          Authenticating_Sentinel_Access...
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || view === 'onboarding') {
     return (
       <>
         <LandingPage 
@@ -968,6 +1174,9 @@ const App: React.FC = () => {
           handleTopologyChange={handleTopologyChange}
           handleIndustryChange={handleIndustryChange}
           onOpenHardwareTest={() => setIsHardwareTestOpen(true)}
+          user={user}
+          onLogin={signInWithGoogle}
+          onLogout={logout}
         />
         {isHardwareTestOpen && (
           <HardwareTestMode 
@@ -978,9 +1187,45 @@ const App: React.FC = () => {
               setIsHardwareTestOpen(false);
               setView('dashboard');
             }}
+            user={user}
+            userProfile={userProfile}
+            onConsumeTrial={handleConsumeTrial}
           />
         )}
       </>
+    );
+  }
+
+  if (isAuthorized === false) {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full space-y-12 text-center">
+          <div className="space-y-6">
+            <div className="w-24 h-24 border-2 border-rose-500 mx-auto flex items-center justify-center shadow-[0_0_30px_rgba(244,63,94,0.2)] relative">
+              <div className="absolute inset-0 bg-rose-500/10 animate-pulse"></div>
+              <Lock size={48} className="text-rose-500 relative z-10" />
+            </div>
+            <h1 className="text-5xl font-display font-black uppercase tracking-tightest text-white italic leading-none">Access<span className="text-rose-500">_</span>Denied</h1>
+            <p className="text-rose-500 text-sm uppercase tracking-widest font-mono">Unauthorized Identity Detected</p>
+          </div>
+          
+          <div className="p-8 bg-zinc-950 border border-zinc-800 space-y-8">
+            <div className="flex items-start gap-4 text-left p-4 bg-rose-500/5 border border-rose-500/20">
+              <AlertCircle className="text-rose-500 shrink-0" size={20} />
+              <p className="text-xs text-zinc-400 leading-relaxed font-mono uppercase">
+                Email <span className="text-white">({user.email})</span> is not on the authorized allowlist. Please contact the Sentinel administrator for access.
+              </p>
+            </div>
+            <button 
+              onClick={logout}
+              className="w-full py-4 border border-zinc-800 text-zinc-400 font-black uppercase tracking-widest hover:bg-rose-500/10 hover:text-rose-500 transition-all flex items-center justify-center gap-3"
+            >
+              <LogOut size={20} />
+              Switch Account
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -1159,14 +1404,20 @@ const App: React.FC = () => {
            </div>
         </div>
 
-      {isHardwareTestOpen && (
-        <HardwareTestMode 
-          onClose={() => setIsHardwareTestOpen(false)} 
-          onDeploy={(config) => {
-            console.log("Hardware Deployment Config:", config);
-          }}
-        />
-      )}
+        {isHardwareTestOpen && (
+          <HardwareTestMode 
+            onClose={() => setIsHardwareTestOpen(false)} 
+            onDeploy={(config) => {
+              console.log("Hardware Deployment Config:", config);
+              // Move forward to dashboard and close test mode
+              setIsHardwareTestOpen(false);
+              setView('dashboard');
+            }}
+            user={user}
+            userProfile={userProfile}
+            onConsumeTrial={handleConsumeTrial}
+          />
+        )}
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-3 flex-1 overflow-hidden">
           <div className="md:col-span-3 flex flex-col gap-3 overflow-y-auto pr-1 custom-scrollbar">

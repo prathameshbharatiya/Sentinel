@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "prathameshshirbhate8anpc@gmail.com" ||
+         (exists(/databases/$(database)/documents/user_profiles/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.role == 'admin'));
+    }
+
+    // User Profiles
+    match /user_profiles/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow create: if isOwner(userId) && 
+                      request.resource.data.keys().hasAll(['uid', 'email', 'hasUsedTrial', 'role']) &&
+                      request.resource.data.role == 'user' &&
+                      request.resource.data.hasUsedTrial == false;
+      allow update: if isOwner(userId) && 
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hasUsedTrial']) &&
+                      resource.data.hasUsedTrial == false &&
+                      request.resource.data.hasUsedTrial == true;
+      allow delete: if isAdmin();
+    }
+
+    // Connection test
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // Authorized Emails (Allowlist)
+    match /authorized_emails/{email} {
+      allow read: if isAuthenticated(); // Users need to check if they are authorized
+      allow write: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "entities": {
+    "authorized_emails": {
+      "title": "Authorized Emails",
+      "description": "A list of email addresses permitted to access the application.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The email address of the authorized user."
+        }
+      },
+      "required": ["email"]
+    },
+    "user_profiles": {
+      "title": "User Profiles",
+      "description": "User-specific data including trial status and role.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The unique Firebase Auth ID of the user."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The email address of the user."
+        },
+        "hasUsedTrial": {
+          "type": "boolean",
+          "description": "Whether the user has already used their one-time hardware test trial."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "user"],
+          "description": "The role of the user."
+        }
+      },
+      "required": ["uid", "email", "hasUsedTrial", "role"]
+    }
+  },
+  "firestore": {
+    "/authorized_emails/{emailId}": {
+      "schema": "authorized_emails",
+      "description": "Collection of emails authorized to use the app."
+    },
+    "/user_profiles/{userId}": {
+      "schema": "user_profiles",
+      "description": "Collection of user profiles tracking trial status."
+    }
+  }
+}
