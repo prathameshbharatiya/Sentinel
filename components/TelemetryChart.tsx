@@ -1,56 +1,65 @@
 
 import React from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface TelemetryChartProps {
   data: any[];
-  title: string;
 }
 
-const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, title }) => {
+const TelemetryChart: React.FC<TelemetryChartProps> = ({ data }) => {
   return (
-    <div className="bg-zinc-900/50 border border-[#00ff41]/10 p-2 rounded-lg h-full shadow-inner">
-      <h3 className="text-[11px] font-bold uppercase tracking-widest text-[#00ff41]/50 mb-2">{title}</h3>
+    <div className="h-full w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data}>
+        <AreaChart data={data}>
+          <defs>
+            <linearGradient id="colorLyapunov" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#00ff41" stopOpacity={0.3}/>
+              <stop offset="95%" stopColor="#00ff41" stopOpacity={0}/>
+            </linearGradient>
+            <linearGradient id="colorRLS" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+            </linearGradient>
+          </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" vertical={false} />
           <XAxis 
-            dataKey="timestamp" 
+            dataKey="time" 
             hide 
           />
           <YAxis 
             stroke="#525252" 
-            fontSize={11} 
-            tickFormatter={(val) => val.toFixed(1)}
-            domain={['auto', 'auto']}
+            fontSize={10} 
+            tickFormatter={(val) => val.toFixed(2)}
+            domain={[0, 1.2]}
             axisLine={false}
             tickLine={false}
           />
           <Tooltip 
-            contentStyle={{ backgroundColor: '#000', border: '1px solid #00ff4133', fontSize: '11px', fontFamily: 'JetBrains Mono' }}
-            itemStyle={{ color: '#00ff41', padding: '2px 0' }}
+            contentStyle={{ backgroundColor: '#000', border: '1px solid #00ff4133', fontSize: '10px', fontFamily: 'JetBrains Mono' }}
+            itemStyle={{ padding: '2px 0' }}
             cursor={{ stroke: '#00ff4133', strokeWidth: 1 }}
           />
-          <Line 
+          <Area 
             type="monotone" 
-            dataKey="velocity" 
+            dataKey="lyapunov" 
             stroke="#00ff41" 
-            dot={false} 
-            isAnimationActive={false} 
-            strokeWidth={1.5}
-            name="Velocity_DOF0"
+            fillOpacity={1} 
+            fill="url(#colorLyapunov)" 
+            isAnimationActive={false}
+            strokeWidth={2}
+            name="Lyapunov_V"
           />
-          <Line 
+          <Area 
             type="monotone" 
-            dataKey="controlInput" 
-            stroke="#ef4444" 
-            dot={false} 
-            isAnimationActive={false} 
-            strokeWidth={1}
-            strokeDasharray="4 4"
-            name="Control_Ref"
+            dataKey="rls" 
+            stroke="#3b82f6" 
+            fillOpacity={1} 
+            fill="url(#colorRLS)" 
+            isAnimationActive={false}
+            strokeWidth={2}
+            name="RLS_Estimate"
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );

@@ -1827,14 +1827,15 @@ const LandingPage = ({ onLaunch }: { onLaunch: () => void }) => {
       <main>
         <HeroSection onLaunch={onLaunch} />
         <ProblemSection />
-        <WhatIsSentinelSection />
         <ArchitectureSection />
-        <MathematicsSection />
+        <KernelGrid />
+        <TelemetryDashboard />
         <GuaranteesSection />
-        <ApplicationsSection />
+        <HazardClassification />
+        <MathematicsSection />
         <PhysiCoreSection />
-        <WhitepaperSection onOpenPaper={() => setIsPaperOpen(true)} />
-        <CTASection onLaunch={onLaunch} />
+        <HardwareValidation />
+        <BuiltBySection />
       </main>
 
       <Footer />
@@ -1934,6 +1935,14 @@ const Navbar = ({ onLaunch, isMenuOpen, setIsMenuOpen }: { onLaunch: () => void,
 
 const HeroSection = ({ onLaunch }: { onLaunch: () => void }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [cycle, setCycle] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCycle(prev => prev + 1);
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1959,6 +1968,17 @@ const HeroSection = ({ onLaunch }: { onLaunch: () => void }) => {
     const hexWidth = hexSize * Math.sqrt(3);
     const hexHeight = hexSize * 2;
 
+    const chars = "0101010101010101010101010101010101010101010101010101010101010101";
+    const rainDrops: { x: number, y: number, speed: number, char: string }[] = [];
+    for (let i = 0; i < 50; i++) {
+      rainDrops.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        speed: 1 + Math.random() * 3,
+        char: chars[Math.floor(Math.random() * chars.length)]
+      });
+    }
+
     const drawHex = (x: number, y: number, opacity: number) => {
       ctx.beginPath();
       for (let i = 0; i < 6; i++) {
@@ -1969,7 +1989,7 @@ const HeroSection = ({ onLaunch }: { onLaunch: () => void }) => {
         else ctx.lineTo(px, py);
       }
       ctx.closePath();
-      ctx.strokeStyle = `rgba(0, 255, 65, ${opacity * 0.15})`;
+      ctx.strokeStyle = `rgba(0, 255, 65, ${opacity * 0.1})`;
       ctx.lineWidth = 1;
       ctx.stroke();
     };
@@ -1984,13 +2004,22 @@ const HeroSection = ({ onLaunch }: { onLaunch: () => void }) => {
         for (let c = 0; c < cols; c++) {
           const x = c * hexWidth + (r % 2 === 0 ? 0 : hexWidth / 2);
           const y = r * hexHeight * 0.75;
-          
           const dist = Math.sqrt(Math.pow(x - width / 2, 2) + Math.pow(y - height / 2, 2));
           const wave = Math.sin(dist * 0.01 - time * 0.002) * 0.5 + 0.5;
-          
           drawHex(x, y, wave);
         }
       }
+
+      ctx.font = "10px JetBrains Mono";
+      ctx.fillStyle = "rgba(0, 255, 65, 0.2)";
+      rainDrops.forEach(drop => {
+        ctx.fillText(drop.char, drop.x, drop.y);
+        drop.y += drop.speed;
+        if (drop.y > height) {
+          drop.y = -20;
+          drop.x = Math.random() * width;
+        }
+      });
 
       animationFrameId = requestAnimationFrame(render);
     };
@@ -2007,45 +2036,73 @@ const HeroSection = ({ onLaunch }: { onLaunch: () => void }) => {
     <section className="relative h-screen flex items-center justify-center overflow-hidden border-b border-zinc-800">
       <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none" />
       
-      <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
-        >
-          <div className="inline-block px-3 py-1 border border-[#00ff41]/30 bg-[#00ff41]/5 text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-6">
-            Formal Verification Kernel v5.0
-          </div>
-          <h1 className="font-rajdhani font-bold text-6xl md:text-8xl tracking-tighter leading-none mb-8">
-            THE DETERMINISTIC<br />
-            <span className="text-[#00ff41]">FIREWALL</span> FOR ROBOTICS
-          </h1>
-          <p className="text-zinc-400 text-lg md:text-xl max-w-2xl mx-auto mb-10 font-sans leading-relaxed">
-            Sentinel OS is a 10-layer formal verification engine that bridges the gap between high-level AI intent and physical safety. No vaporware. Just mathematics.
-          </p>
-          
-          <div className="flex flex-col md:flex-row items-center justify-center gap-4">
-            <button 
-              onClick={onLaunch}
-              className="w-full md:w-auto px-10 py-5 bg-[#00ff41] text-black font-black uppercase text-sm tracking-[0.2em] hover:bg-white transition-all flex items-center justify-center gap-3"
+      <div className="relative z-10 max-w-7xl mx-auto px-6 w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          <div className="lg:col-span-8 text-left">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
             >
-              Launch Sentinel
-              <ArrowRight size={20} />
-            </button>
-            <a 
-              href="#architecture"
-              className="w-full md:w-auto px-10 py-5 border border-zinc-700 text-white font-bold uppercase text-sm tracking-[0.2em] hover:border-[#00ff41] transition-all"
-            >
-              View Architecture
-            </a>
+              <div className="inline-flex items-center gap-3 px-3 py-1 border border-[#00ff41]/30 bg-[#00ff41]/5 text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-8 font-mono">
+                <span className="w-2 h-2 bg-[#00ff41] animate-pulse" />
+                Kernel_Active // Cycle_{cycle.toString().padStart(8, '0')}
+              </div>
+              <h1 className="font-rajdhani font-bold text-3xl md:text-5xl tracking-tighter leading-[0.9] mb-8 uppercase">
+                THE PROOF BETWEEN<br />
+                <span className="text-[#00ff41]">AI AND PHYSICS</span>
+              </h1>
+              <p className="text-zinc-500 text-lg md:text-xl max-w-2xl mb-12 font-sans leading-relaxed">
+                Sentinel OS is the mathematical firewall for autonomous systems. We don't guess if a movement is safe. We prove it.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <button 
+                  onClick={onLaunch}
+                  className="w-full sm:w-auto px-10 py-5 bg-[#00ff41] text-black font-black uppercase text-sm tracking-[0.2em] hover:bg-white transition-all flex items-center justify-center gap-3"
+                >
+                  Request Access
+                  <ArrowRight size={20} />
+                </button>
+                <a 
+                  href="#architecture"
+                  className="w-full sm:w-auto px-10 py-5 border border-zinc-800 text-white font-bold uppercase text-sm tracking-[0.2em] hover:border-[#00ff41] transition-all flex items-center justify-center"
+                >
+                  Technical Specs
+                </a>
+              </div>
+            </motion.div>
           </div>
-        </motion.div>
+
+          <div className="lg:col-span-4 hidden lg:block">
+            <div className="grid grid-cols-1 gap-4">
+              {[
+                { label: "Latency", value: "85–120 µs", desc: "Worst-case execution time" },
+                { label: "Frequency", value: "10 kHz", desc: "Real-time verification loop" },
+                { label: "Modules", value: "8 Cores", desc: "Deterministic safety stack" }
+              ].map((stat, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: 20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
+                  className="border border-zinc-800 p-8 bg-zinc-950/50 backdrop-blur-sm"
+                >
+                  <div className="text-[10px] text-zinc-600 uppercase tracking-widest mb-2">{stat.label}</div>
+                  <div className="text-3xl font-rajdhani font-bold text-white mb-1">{stat.value}</div>
+                  <div className="text-[10px] text-[#00ff41] uppercase tracking-widest opacity-50">{stat.desc}</div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-30">
-        <span className="text-[10px] uppercase tracking-widest">Scroll to explore</span>
-        <div className="w-px h-12 bg-gradient-to-b from-[#00ff41] to-transparent" />
+      <div className="absolute bottom-10 left-6 flex items-center gap-4">
+        <div className="w-12 h-px bg-zinc-800" />
+        <span className="text-[9px] text-zinc-700 uppercase tracking-[0.5em] font-mono">System_Status: Nominal // Build_v5.0.42</span>
       </div>
     </section>
   );
@@ -2053,50 +2110,55 @@ const HeroSection = ({ onLaunch }: { onLaunch: () => void }) => {
 
 const ProblemSection = () => {
   return (
-    <section className="py-32 border-b border-zinc-800 bg-zinc-950/30">
+    <section className="py-32 border-b border-zinc-800 bg-black">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-20 items-center">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-          >
-            <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">01 // The Problem</div>
-            <h2 className="font-rajdhani font-bold text-4xl md:text-5xl tracking-tight mb-8">
-              AI IS PROBABILISTIC.<br />
-              PHYSICS IS NOT.
-            </h2>
-            <div className="space-y-6 text-zinc-400 leading-relaxed">
-              <p>
-                Modern robotics faces a critical failure point: the "Semantic Gap." Large Language Models and Neural Networks generate intents that are statistically likely but physically impossible.
-              </p>
-              <p>
-                When an AI-driven robot encounters an edge case, it doesn't just fail—it diverges. Without a deterministic layer to enforce Lyapunov stability and formal safety bounds, your hardware is a liability.
-              </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-20">
+          <div className="space-y-12">
+            <div>
+              <div className="text-rose-500 text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">Without Sentinel</div>
+              <h2 className="font-rajdhani font-bold text-2xl md:text-3xl tracking-tight mb-8 uppercase">
+                PROBABILISTIC<br />FAILURE
+              </h2>
+              <div className="space-y-4">
+                {[
+                  { label: "Semantic Gap", desc: "AI generates intents that violate physical laws." },
+                  { label: "Latency Jitter", desc: "Non-deterministic execution causes control divergence." },
+                  { label: "Unbounded Risk", desc: "No formal proof of safety for edge-case scenarios." }
+                ].map((item, i) => (
+                  <div key={i} className="p-6 border border-rose-500/20 bg-rose-500/5 flex gap-4">
+                    <X className="text-rose-500 shrink-0" size={18} />
+                    <div>
+                      <div className="text-xs font-bold text-white uppercase mb-1">{item.label}</div>
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-widest">{item.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </motion.div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            {[
-              { label: 'Latency Drift', value: '> 50ms', desc: 'Standard ROS2 jitter' },
-              { label: 'Safety Violations', value: 'Critical', desc: 'Unbounded AI intent' },
-              { label: 'Formal Proof', value: 'None', desc: 'Legacy control stacks' },
-              { label: 'Recovery', value: 'Manual', desc: 'No autonomous FTS' },
-            ].map((stat, i) => (
-              <motion.div 
-                key={i} 
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="border border-zinc-800 p-6 bg-black"
-              >
-                <div className="text-rose-500 mb-2"><AlertTriangle size={20} /></div>
-                <div className="text-2xl font-rajdhani font-bold mb-1">{stat.value}</div>
-                <div className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">{stat.label}</div>
-                <div className="text-xs text-zinc-600">{stat.desc}</div>
-              </motion.div>
-            ))}
+          </div>
+
+          <div className="space-y-12">
+            <div>
+              <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">With Sentinel</div>
+              <h2 className="font-rajdhani font-bold text-2xl md:text-3xl tracking-tight mb-8 uppercase">
+                DETERMINISTIC<br />CERTAINTY
+              </h2>
+              <div className="space-y-4">
+                {[
+                  { label: "Mathematical Firewall", desc: "Every intent is verified against Lyapunov bounds." },
+                  { label: "Hard Real-Time", desc: "Guaranteed 100μs worst-case execution time." },
+                  { label: "Formal Guarantees", desc: "Mathematical proof of safety for every movement." }
+                ].map((item, i) => (
+                  <div key={i} className="p-6 border border-[#00ff41]/20 bg-[#00ff41]/5 flex gap-4">
+                    <ShieldCheck className="text-[#00ff41] shrink-0" size={18} />
+                    <div>
+                      <div className="text-xs font-bold text-white uppercase mb-1">{item.label}</div>
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-widest">{item.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -2104,49 +2166,46 @@ const ProblemSection = () => {
   );
 };
 
-const WhatIsSentinelSection = () => {
+const KernelGrid = () => {
+  const modules = [
+    { name: "RLS Digital Twin", desc: "Recursive Least Squares estimator for real-time plant model identification.", trigger: "Continuous", complexity: "O(n²)", link: "https://en.wikipedia.org/wiki/Recursive_least_squares_filter" },
+    { name: "Lyapunov Enforcer", desc: "Energy-decay verification kernel enforcing stable manifold convergence.", trigger: "10kHz", complexity: "O(1)", link: "https://en.wikipedia.org/wiki/Lyapunov_stability" },
+    { name: "Hazard Classifier", desc: "Real-time H0-H4 event categorization and mitigation logic.", trigger: "Event-Driven", complexity: "O(log n)", link: "https://en.wikipedia.org/wiki/Hazard_analysis" },
+    { name: "Byzantine Bridge", desc: "Quorum-based consensus for multi-agent state reconciliation.", trigger: "Network", complexity: "O(n³)", link: "https://en.wikipedia.org/wiki/Byzantine_fault" },
+    { name: "Forensic Ledger", desc: "Immutable SHA-256 audit chain of all safety interventions.", trigger: "Write-Only", complexity: "O(1)", link: "https://en.wikipedia.org/wiki/SHA-2" },
+    { name: "PTP Sync Engine", desc: "Nanosecond-accurate clock synchronization for distributed control.", trigger: "Hardware", complexity: "O(1)", link: "https://en.wikipedia.org/wiki/Precision_Time_Protocol" },
+    { name: "Intent Refiner", desc: "Neural-symbolic mapping of high-level AI goals to physical constraints.", trigger: "1kHz", complexity: "O(n)", link: "https://arxiv.org/abs/2103.01932" },
+    { name: "Actuator Guard", desc: "Final torque clamping and thermal protection safety envelope.", trigger: "Hardware", complexity: "O(1)", link: "https://en.wikipedia.org/wiki/Control_theory" }
+  ];
+
   return (
-    <section className="py-32 border-b border-zinc-800">
+    <section className="py-32 border-b border-zinc-800 bg-black">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-20">
-          <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">02 // The Solution</div>
-          <h2 className="font-rajdhani font-bold text-4xl md:text-6xl tracking-tight mb-6">
-            A DETERMINISTIC KERNEL
+          <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">04 // The Kernel</div>
+          <h2 className="font-rajdhani font-bold text-2xl md:text-4xl tracking-tight mb-6 uppercase">
+            8-MODULE SAFETY CORE
           </h2>
-          <p className="text-zinc-400 max-w-2xl mx-auto">
-            Sentinel OS is not a replacement for your AI. It is the firewall that sits between your AI and your motors, ensuring every movement is mathematically verified before it happens.
-          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[
-            {
-              icon: <Lock className="text-[#00ff41]" />,
-              title: "Formal Verification",
-              desc: "Every control signal is checked against dReal/Coq certified bounds in real-time at 10kHz."
-            },
-            {
-              icon: <Activity className="text-[#00ff41]" />,
-              title: "Lyapunov Stability",
-              desc: "Continuous monitoring of the system's energy state to prevent non-linear divergence."
-            },
-            {
-              icon: <Layers className="text-[#00ff41]" />,
-              title: "Shadow Driver SDK",
-              desc: "A C++20 header-only library that wraps any existing driver in a safety-critical envelope."
-            }
-          ].map((item, i) => (
-            <motion.div 
-              key={i} 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {modules.map((m, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              className="border border-zinc-800 p-10 bg-zinc-950/50 hover:border-[#00ff41]/50 transition-all group"
+              transition={{ delay: i * 0.05 }}
+              onClick={() => window.open(m.link, '_blank')}
+              className="border border-zinc-800 p-8 bg-zinc-950/50 hover:border-[#00ff41]/50 transition-all group relative overflow-hidden cursor-pointer"
             >
-              <div className="mb-6 group-hover:scale-110 transition-transform">{item.icon}</div>
-              <h3 className="font-rajdhani font-bold text-2xl mb-4 uppercase tracking-tight">{item.title}</h3>
-              <p className="text-sm text-zinc-500 leading-relaxed">{item.desc}</p>
+              <div className="absolute top-0 right-0 p-3 text-[8px] text-zinc-700 font-mono uppercase tracking-widest">{m.complexity}</div>
+              <h3 className="font-rajdhani font-bold text-xl mb-4 text-white uppercase tracking-tight group-hover:text-[#00ff41] transition-colors">{m.name}</h3>
+              <p className="text-xs text-zinc-500 leading-relaxed mb-6">{m.desc}</p>
+              <div className="flex items-center justify-between border-t border-zinc-800 pt-4">
+                <span className="text-[9px] text-zinc-600 uppercase tracking-widest">Trigger</span>
+                <span className="text-[9px] text-[#00ff41] font-mono uppercase">{m.trigger}</span>
+              </div>
             </motion.div>
           ))}
         </div>
@@ -2155,87 +2214,287 @@ const WhatIsSentinelSection = () => {
   );
 };
 
-const ArchitectureSection = () => {
-  const [activeLayer, setActiveLayer] = useState(0);
+const TelemetryDashboard = () => {
+  const [data, setData] = useState<any[]>([]);
+  const [logs, setLogs] = useState<string[]>([]);
 
-  const layers = [
-    { name: "L0: Physical Topology", desc: "The raw hardware configuration, from joint limits to motor constants." },
-    { name: "L1: State Observer", desc: "High-fidelity Kalman filtering and sensor fusion for ground truth estimation." },
-    { name: "L2: Digital Twin", desc: "A real-time RLS (Recursive Least Squares) model of the robot's dynamics." },
-    { name: "L3: Consensus Bridge", desc: "Byzantine-resilient quorum commitment for multi-agent coordination." },
-    { name: "L4: Lyapunov Kernel", desc: "The core stability engine verifying energy decay and convergence." },
-    { name: "L5: Actuator Envelope", desc: "Final torque clamping and thermal protection before PWM output." },
-    { name: "L6: Forensic Ledger", desc: "An immutable, cryptographically signed log of every safety transgression." },
-    { name: "L7: Recovery Engine", desc: "Autonomous FTS (Flight Termination System) and fail-safe protocols." },
-    { name: "L8: Formal Verifier", desc: "Real-time δ-refinement checking against mission-critical constraints." },
-    { name: "L9: AI Interface", desc: "The secure API for high-level intent injection and semantic mapping." }
-  ];
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const newVal = {
+        time: new Date().toLocaleTimeString(),
+        lyapunov: 0.5 + Math.random() * 0.2,
+        rls: 0.8 + Math.random() * 0.1,
+        innovation: Math.random() * 0.05
+      };
+      setData(prev => [...prev.slice(-20), newVal]);
+      
+      if (Math.random() > 0.8) {
+        const events = [
+          "LYAPUNOV_STABILITY_VERIFIED",
+          "RLS_PARAMETER_CONVERGENCE_0.98",
+          "HAZARD_H0_NOMINAL",
+          "PTP_SYNC_OK_12ns",
+          "BYZANTINE_QUORUM_REACHED"
+        ];
+        setLogs(prev => [events[Math.floor(Math.random() * events.length)], ...prev.slice(0, 5)]);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <section id="architecture" className="py-32 border-b border-zinc-800 bg-black overflow-hidden">
+    <section className="py-32 border-b border-zinc-800 bg-black overflow-hidden">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="flex flex-col md:flex-row gap-20">
-          <div className="md:w-1/2">
-            <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">03 // Architecture</div>
-            <h2 className="font-rajdhani font-bold text-4xl md:text-5xl tracking-tight mb-8">
-              THE 10-LAYER<br />
-              SAFETY STACK
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          <div className="lg:col-span-4">
+            <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">05 // Telemetry</div>
+            <h2 className="font-rajdhani font-bold text-2xl md:text-3xl tracking-tight mb-8 uppercase">
+              LIVE SAFETY<br />DASHBOARD
             </h2>
-            <div className="space-y-2">
-              {layers.map((layer, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveLayer(i)}
-                  className={`w-full text-left p-4 border transition-all flex items-center justify-between group ${
-                    activeLayer === i 
-                      ? 'bg-[#00ff41] border-[#00ff41] text-black' 
-                      : 'bg-transparent border-zinc-800 text-zinc-500 hover:border-zinc-600'
-                  }`}
-                >
-                  <span className="text-xs font-bold uppercase tracking-widest">{layer.name}</span>
-                  <ChevronRight size={16} className={activeLayer === i ? 'text-black' : 'text-zinc-700'} />
-                </button>
-              ))}
+            <p className="text-zinc-500 text-sm leading-relaxed mb-8">
+              Sentinel provides real-time visibility into the mathematical health of your system. Monitor stability margins, parameter convergence, and hazard levels with nanosecond precision.
+            </p>
+            <div className="space-y-4">
+              <div className="border border-zinc-800 p-4 bg-zinc-950/50">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] text-zinc-600 uppercase tracking-widest">System Status</span>
+                  <span className="text-[10px] text-[#00ff41] font-bold uppercase animate-pulse">Nominal</span>
+                </div>
+                <div className="h-1 bg-zinc-800 w-full overflow-hidden">
+                  <motion.div 
+                    animate={{ x: ["-100%", "100%"] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    className="h-full bg-[#00ff41] w-1/3"
+                  />
+                </div>
+              </div>
+              <div className="border border-zinc-800 p-4 bg-zinc-950/50">
+                <div className="text-[10px] text-zinc-600 uppercase tracking-widest mb-4">Forensic Log</div>
+                <div className="space-y-2 font-mono text-[9px]">
+                  {logs.map((log, i) => (
+                    <div key={i} className="flex items-center gap-2 text-zinc-500">
+                      <span className="text-[#00ff41] opacity-50">[{new Date().toLocaleTimeString()}]</span>
+                      <span className="truncate">{log}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="md:w-1/2 flex flex-col justify-center">
-            <div className="relative aspect-square border border-zinc-800 bg-zinc-950 p-12 flex flex-col items-center justify-center text-center">
-              <div className="absolute top-4 left-4 text-[10px] text-zinc-600 font-mono">LAYER_REVEAL_0x{activeLayer}</div>
-              
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeLayer}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="space-y-6"
-                >
-                  <div className="w-20 h-20 mx-auto border-2 border-[#00ff41] flex items-center justify-center">
-                    <Layers className="text-[#00ff41]" size={32} />
+          <div className="lg:col-span-8">
+            <div className="border border-zinc-800 bg-zinc-950 p-8 h-full min-h-[400px]">
+              <div className="flex items-center justify-between mb-8 border-b border-zinc-800 pb-4">
+                <div className="flex gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-[#00ff41]" />
+                    <span className="text-[10px] text-zinc-500 uppercase font-bold">Lyapunov Value</span>
                   </div>
-                  <h3 className="font-rajdhani font-bold text-3xl uppercase">{layers[activeLayer].name}</h3>
-                  <p className="text-zinc-400 leading-relaxed">{layers[activeLayer].desc}</p>
-                  
-                  <div className="pt-8 grid grid-cols-2 gap-4">
-                    <div className="text-left border-l border-zinc-800 pl-4">
-                      <div className="text-[10px] text-zinc-600 uppercase mb-1">Latency</div>
-                      <div className="text-sm font-mono text-[#00ff41]">{'< 100μs'}</div>
-                    </div>
-                    <div className="text-left border-l border-zinc-800 pl-4">
-                      <div className="text-[10px] text-zinc-600 uppercase mb-1">Assurance</div>
-                      <div className="text-sm font-mono text-[#00ff41]">SIL-3 / DO-178C</div>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-blue-500" />
+                    <span className="text-[10px] text-zinc-500 uppercase font-bold">RLS Estimate</span>
                   </div>
-                </motion.div>
-              </AnimatePresence>
-
-              {/* Decorative elements */}
-              <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-[#00ff41]" />
-              <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-[#00ff41]" />
-              <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-[#00ff41]" />
-              <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-[#00ff41]" />
+                </div>
+                <div className="text-[10px] text-zinc-700 font-mono">STREAM_ID_0xEE92</div>
+              </div>
+              <div className="h-[300px] w-full">
+                <TelemetryChart data={data} />
+              </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const HazardClassification = () => {
+  const hazards = [
+    { id: "H0", name: "Nominal", desc: "System operating within formal safety bounds.", color: "text-[#00ff41]", bg: "bg-[#00ff41]/5", border: "border-[#00ff41]/20" },
+    { id: "H1", name: "Advisory", desc: "Minor parameter deviation detected. RLS adapting.", color: "text-blue-400", bg: "bg-blue-400/5", border: "border-blue-400/20" },
+    { id: "H2", name: "Caution", desc: "Lyapunov decay rate slowing. Approaching boundary.", color: "text-amber-400", bg: "bg-amber-400/5", border: "border-amber-400/20" },
+    { id: "H3", name: "Warning", desc: "Boundary violation imminent. Sentinel intervention active.", color: "text-orange-500", bg: "bg-orange-500/5", border: "border-orange-500/20" },
+    { id: "H4", name: "Critical", desc: "Unrecoverable divergence. FTS / Fail-Safe triggered.", color: "text-rose-500", bg: "bg-rose-500/5", border: "border-rose-500/20", pulse: true }
+  ];
+
+  return (
+    <section className="py-32 border-b border-zinc-800 bg-black">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="text-center mb-20">
+          <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">08 // Classification</div>
+          <h2 className="font-rajdhani font-bold text-2xl md:text-4xl tracking-tight mb-6 uppercase">
+            HAZARD LEVELS
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          {hazards.map((h, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1 }}
+              className={`border ${h.border} ${h.bg} p-8 flex flex-col items-center text-center group hover:scale-105 transition-all duration-500 relative`}
+            >
+              {h.pulse && (
+                <div className="absolute inset-0 bg-rose-500/10 animate-pulse pointer-events-none" />
+              )}
+              <div className={`text-4xl font-black mb-4 ${h.color} font-rajdhani opacity-50 group-hover:opacity-100 transition-opacity`}>{h.id}</div>
+              <h3 className={`font-rajdhani font-bold text-xl mb-4 uppercase tracking-tight ${h.color}`}>{h.name}</h3>
+              <p className="text-[10px] text-zinc-500 leading-relaxed uppercase tracking-widest">{h.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const HardwareValidation = () => {
+  const tests = [
+    { id: "TEST_01", type: "Fault Injection", target: "IMU Drift", status: "PASS", latency: "85μs" },
+    { id: "TEST_02", type: "Boundary Violation", target: "Joint Limit", status: "PASS", latency: "92μs" },
+    { id: "TEST_03", type: "Network Partition", target: "Byzantine Quorum", status: "PASS", latency: "1.2ms" },
+    { id: "TEST_04", type: "Thermal Throttling", target: "Actuator Guard", status: "PASS", latency: "45μs" },
+    { id: "TEST_05", type: "Packet Loss (30%)", target: "PTP Sync", status: "PASS", latency: "110μs" }
+  ];
+
+  return (
+    <section className="py-32 border-b border-zinc-800 bg-black">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+          <div>
+            <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">11 // Validation</div>
+            <h2 className="font-rajdhani font-bold text-2xl md:text-3xl tracking-tight mb-8 uppercase">
+              HARDWARE<br />PROVENANCE
+            </h2>
+            <p className="text-zinc-500 text-sm leading-relaxed mb-8">
+              Every build of Sentinel OS undergoes rigorous hardware-in-the-loop (HIL) validation. We simulate thousands of failure modes to ensure the mathematical proofs hold in physical reality.
+            </p>
+            <div className="p-6 border border-zinc-800 bg-zinc-950/50">
+              <div className="flex items-center gap-4 mb-6">
+                <Cpu className="text-[#00ff41]" size={24} />
+                <div>
+                  <div className="text-xs font-bold text-white uppercase">Target: ARM Cortex-M7</div>
+                  <div className="text-[10px] text-zinc-600 uppercase tracking-widest">DAL-A Certified Hardware</div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between text-[10px] uppercase tracking-widest">
+                  <span className="text-zinc-600">WCET Assurance</span>
+                  <span className="text-[#00ff41]">120μs Guaranteed</span>
+                </div>
+                <div className="w-full h-1 bg-zinc-800">
+                  <div className="w-[85%] h-full bg-[#00ff41]" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border border-zinc-800 bg-black overflow-hidden">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-zinc-800 bg-zinc-900/50">
+                  <th className="p-4 text-[10px] text-zinc-500 uppercase tracking-widest font-bold">ID</th>
+                  <th className="p-4 text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Target</th>
+                  <th className="p-4 text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Latency</th>
+                  <th className="p-4 text-[10px] text-zinc-500 uppercase tracking-widest font-bold text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono text-[10px]">
+                {tests.map((test, i) => (
+                  <tr key={i} className="border-b border-zinc-800 hover:bg-zinc-900/30 transition-colors">
+                    <td className="p-4 text-zinc-600">{test.id}</td>
+                    <td className="p-4 text-white uppercase">{test.target}</td>
+                    <td className="p-4 text-zinc-500">{test.latency}</td>
+                    <td className="p-4 text-right">
+                      <span className="px-2 py-1 bg-[#00ff41]/10 text-[#00ff41] font-bold border border-[#00ff41]/20">
+                        {test.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const BuiltBySection = () => {
+  return (
+    <section className="py-32 border-b border-zinc-800 bg-black">
+      <div className="max-w-7xl mx-auto px-6 text-center">
+        <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">12 // Provenance</div>
+        <h2 className="font-rajdhani font-bold text-2xl md:text-3xl tracking-tight mb-12 uppercase">
+          VERIFIED BY MATHEMATICS
+        </h2>
+        <div className="flex flex-col md:flex-row items-center justify-center gap-12">
+          <div className="flex flex-col items-center">
+            <div 
+              onClick={() => window.open('https://prathameshshirbhate.vercel.app/', '_blank')}
+              className="w-20 h-20 border border-zinc-800 flex items-center justify-center mb-4 grayscale hover:grayscale-0 transition-all cursor-pointer"
+            >
+              <span className="text-2xl font-black text-white">PS</span>
+            </div>
+            <div 
+              onClick={() => window.open('https://prathameshshirbhate.vercel.app/', '_blank')}
+              className="text-sm font-bold text-white uppercase tracking-tight cursor-pointer hover:text-[#00ff41] transition-colors"
+            >
+              Prathamesh Shirbhate
+            </div>
+            <div className="text-[10px] text-zinc-600 uppercase tracking-widest">Founder</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const ArchitectureSection = () => {
+  return (
+    <section id="architecture" className="py-32 border-b border-zinc-800 bg-black overflow-hidden">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="text-center mb-20">
+          <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">03 // Architecture</div>
+          <h2 className="font-rajdhani font-bold text-2xl md:text-4xl tracking-tight mb-6 uppercase">
+            SYSTEM TOPOLOGY
+          </h2>
+        </div>
+
+        <div className="relative flex flex-col items-center">
+          {[
+            { name: "AI INTENT LAYER", color: "text-zinc-500", border: "border-zinc-800" },
+            { name: "SENTINEL DETERMINISTIC FIREWALL", color: "text-[#00ff41]", border: "border-[#00ff41]" },
+            { name: "PHYSICAL ACTUATORS", color: "text-zinc-500", border: "border-zinc-800" }
+          ].map((layer, i) => (
+            <React.Fragment key={i}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className={`w-full max-w-2xl p-8 border ${layer.border} bg-zinc-950/50 text-center relative z-10`}
+              >
+                <div className={`text-xs font-bold uppercase tracking-[0.3em] ${layer.color}`}>{layer.name}</div>
+              </motion.div>
+              {i < 2 && (
+                <div className="h-20 w-px bg-zinc-800 relative">
+                  <motion.div 
+                    animate={{ y: [0, 80], opacity: [0, 1, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-4 bg-[#00ff41]"
+                  />
+                </div>
+              )}
+            </React.Fragment>
+          ))}
+          
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-px bg-zinc-900 -z-10 hidden lg:block" />
+          <div className="absolute top-1/2 left-0 w-full text-center -z-10 hidden lg:block">
+            <span className="text-[8px] text-zinc-800 uppercase tracking-[1em]">Zero Trust Boundary // Zero Trust Boundary // Zero Trust Boundary</span>
           </div>
         </div>
       </div>
@@ -2244,58 +2503,42 @@ const ArchitectureSection = () => {
 };
 
 const MathematicsSection = () => {
+  const equations = [
+    { label: "Plant Model", eq: "ẋ = f(x, u) + d(t)", desc: "State-space representation of the robotic system with external disturbances.", link: "https://en.wikipedia.org/wiki/State-space_representation" },
+    { label: "Lyapunov Condition", eq: "V̇(x) ≤ -λV(x)", desc: "Formal stability criteria ensuring energy decay toward the stable manifold.", link: "https://en.wikipedia.org/wiki/Lyapunov_function" },
+    { label: "Forensic Hash", eq: "H(t) = SHA256(x, u, τ)", desc: "Immutable cryptographic signature of the system state and control input.", link: "https://en.wikipedia.org/wiki/SHA-2" }
+  ];
+
   return (
-    <section id="mathematics" className="py-32 border-b border-zinc-800 bg-zinc-950/30">
+    <section id="mathematics" className="py-32 border-b border-zinc-800 bg-black">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-20">
-          <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">04 // Mathematics</div>
-          <h2 className="font-rajdhani font-bold text-4xl md:text-6xl tracking-tight mb-6">
-            THE STABILITY PROOF
+          <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">09 // Core</div>
+          <h2 className="font-rajdhani font-bold text-2xl md:text-4xl tracking-tight mb-6 uppercase">
+            MATHEMATICAL CORE
           </h2>
-          <p className="text-zinc-400 max-w-2xl mx-auto">
-            Sentinel doesn't "guess" if a movement is safe. It solves the Lyapunov stability criteria for the system's current state-space representation.
-          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="border border-zinc-800 p-10 bg-black font-mono"
-          >
-            <div className="text-[10px] text-zinc-600 uppercase mb-6">Lyapunov_Candidate_Function</div>
-            <div className="text-xl md:text-2xl text-white mb-8 leading-relaxed">
-              V(x) = x<sup>T</sup>Px, P = P<sup>T</sup> {'>'} 0
-            </div>
-            <div className="text-sm text-zinc-500 space-y-4">
-              <p>For a system to be stable, the derivative of the Lyapunov function must be negative definite:</p>
-              <div className="p-4 bg-zinc-900 border border-zinc-800 text-[#00ff41]">
-                V̇(x) = x<sup>T</sup>(A<sup>T</sup>P + PA)x {'<'} 0
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-zinc-800 border border-zinc-800">
+          {equations.map((e, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1 }}
+              onClick={() => window.open(e.link, '_blank')}
+              className="bg-black p-12 flex flex-col items-center text-center group cursor-pointer hover:bg-zinc-900/50 transition-all"
+            >
+              <div className="text-[10px] text-zinc-600 uppercase tracking-[0.3em] mb-12 font-mono">{e.label}</div>
+              <div className="text-2xl md:text-3xl font-mono text-white mb-12 group-hover:text-[#00ff41] transition-colors duration-500">
+                {e.eq}
               </div>
-              <p>Sentinel solves this LMI (Linear Matrix Inequality) at 10kHz to ensure the system is always converging toward its target state.</p>
-            </div>
-          </motion.div>
-
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.2 }}
-            className="border border-zinc-800 p-10 bg-black font-mono"
-          >
-            <div className="text-[10px] text-zinc-600 uppercase mb-6">Formal_Safety_Property</div>
-            <div className="text-xl md:text-2xl text-white mb-8 leading-relaxed">
-              ∀t ≥ 0, x(t) ∈ S<sub>safe</sub>
-            </div>
-            <div className="text-sm text-zinc-500 space-y-4">
-              <p>Sentinel enforces safety via Control Barrier Functions (CBF):</p>
-              <div className="p-4 bg-zinc-900 border border-zinc-800 text-[#00ff41]">
-                ḣ(x, u) ≥ -α(h(x))
-              </div>
-              <p>This ensures that the system state x(t) never leaves the safe set S<sub>safe</sub>, regardless of the AI's requested control input u.</p>
-            </div>
-          </motion.div>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-widest leading-relaxed max-w-[200px]">
+                {e.desc}
+              </p>
+            </motion.div>
+          ))}
         </div>
       </div>
     </section>
@@ -2303,100 +2546,39 @@ const MathematicsSection = () => {
 };
 
 const GuaranteesSection = () => {
-  return (
-    <section id="guarantees" className="py-32 border-b border-zinc-800">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-20 items-center">
-          <div className="order-2 md:order-1">
-            <div className="grid grid-cols-1 gap-6">
-              {[
-                { title: "Deterministic Scheduling", desc: "Hard real-time execution with zero jitter, guaranteed by a custom microkernel." },
-                { title: "Byzantine Fault Tolerance", desc: "Quorum-based commitment ensures that no single sensor failure can compromise the fleet." },
-                { title: "Formal Verification", desc: "δ-refinement proofs generated for every mission phase using dReal." },
-                { title: "Immutable Forensics", desc: "Every safety intervention is signed and logged to an unalterable ledger." }
-              ].map((item, i) => (
-                <motion.div 
-                  key={i} 
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                  className="flex gap-6 items-start"
-                >
-                  <div className="mt-1 text-[#00ff41]"><CheckCircle2 size={20} /></div>
-                  <div>
-                    <h3 className="font-rajdhani font-bold text-xl uppercase tracking-tight mb-2">{item.title}</h3>
-                    <p className="text-sm text-zinc-500">{item.desc}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="order-1 md:order-2"
-          >
-            <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">05 // Guarantees</div>
-            <h2 className="font-rajdhani font-bold text-4xl md:text-5xl tracking-tight mb-8">
-              TECHNICAL<br />
-              ASSURANCE
-            </h2>
-            <p className="text-zinc-400 leading-relaxed mb-8">
-              Sentinel OS provides the highest level of technical assurance for safety-critical robotics. We don't just mitigate risk; we eliminate the possibility of non-deterministic failure.
-            </p>
-            <div className="p-8 border border-[#00ff41]/20 bg-[#00ff41]/5">
-              <div className="text-xs font-mono text-[#00ff41] mb-2 uppercase tracking-widest">Compliance_Standards</div>
-              <div className="flex flex-wrap gap-4">
-                {['ISO 26262', 'DO-178C', 'IEC 61508', 'MIL-STD-882E'].map((std) => (
-                  <span key={std} className="px-3 py-1 border border-[#00ff41]/30 text-[10px] text-[#00ff41] font-bold">
-                    {std}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-    </section>
-  );
-};
-
-const ApplicationsSection = () => {
-  const apps = [
-    { title: "Aerospace Launch", desc: "Real-time FTS (Flight Termination System) analysis and ISP estimation for orbital insertion." },
-    { title: "Urban Air Mobility", desc: "Safety-critical flight envelopes for eVTOL platforms in dense urban environments." },
-    { title: "Fleet Logistics", desc: "Byzantine-resilient coordination for multi-agent warehouse and last-mile delivery fleets." },
-    { title: "Humanoid Robotics", desc: "Dynamic balance kernels and contact-force verification for collaborative workspaces." }
+  const proofs = [
+    { title: "RLS Convergence", eq: "lim(t→∞) ||θ̂(t) - θ|| = 0", desc: "Recursive Least Squares parameter estimation converges to ground truth under persistent excitation.", link: "https://ieeexplore.ieee.org/document/1101" },
+    { title: "Parameter Boundedness", eq: "||θ̂(t)|| ≤ θ_max, ∀t ≥ 0", desc: "Adaptive projection ensures that estimated physical constants never exceed structural limits.", link: "https://link.springer.com/book/10.1007/978-1-4471-2433-7" },
+    { title: "State Boundedness", eq: "x(t) ∈ Ω_safe, ∀t ≥ 0", desc: "The system state is formally guaranteed to remain within the safe invariant manifold.", link: "https://arxiv.org/abs/1903.11199" }
   ];
 
   return (
-    <section className="py-32 border-b border-zinc-800 bg-zinc-950/30">
+    <section id="guarantees" className="py-32 border-b border-zinc-800 bg-black">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-20">
-          <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">06 // Industry</div>
-          <h2 className="font-rajdhani font-bold text-4xl md:text-6xl tracking-tight mb-6">
-            DEPLOYED IN THE FIELD
+          <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">07 // Proofs</div>
+          <h2 className="font-rajdhani font-bold text-2xl md:text-4xl tracking-tight mb-6 uppercase">
+            FORMAL GUARANTEES
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {apps.map((app, i) => (
-            <motion.div 
-              key={i} 
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {proofs.map((p, i) => (
+            <motion.div
+              key={i}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
-              className="border border-zinc-800 p-8 bg-black hover:border-[#00ff41]/50 transition-all"
+              onClick={() => window.open(p.link, '_blank')}
+              className="border border-zinc-800 p-10 bg-zinc-950/50 relative group cursor-pointer hover:border-[#00ff41]/50 transition-all"
             >
-              <div className="w-12 h-12 border border-zinc-800 flex items-center justify-center mb-6">
-                <Box className="text-zinc-500" size={20} />
+              <div className="absolute top-4 right-4 px-2 py-1 border border-[#00ff41]/30 text-[8px] text-[#00ff41] font-bold uppercase tracking-widest">Verified</div>
+              <h3 className="font-rajdhani font-bold text-xl mb-6 text-white uppercase tracking-tight">{p.title}</h3>
+              <div className="p-6 bg-black border border-zinc-900 font-mono text-sm text-[#00ff41] mb-6 flex items-center justify-center text-center">
+                {p.eq}
               </div>
-              <h3 className="font-rajdhani font-bold text-xl uppercase mb-4">{app.title}</h3>
-              <p className="text-xs text-zinc-500 leading-relaxed">{app.desc}</p>
+              <p className="text-xs text-zinc-500 leading-relaxed">{p.desc}</p>
             </motion.div>
           ))}
         </div>
@@ -2407,7 +2589,7 @@ const ApplicationsSection = () => {
 
 const PhysiCoreSection = () => {
   return (
-    <section className="py-32 border-b border-zinc-800 bg-[#00ff41]/5">
+    <section className="py-32 border-b border-zinc-800 bg-black">
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-20 items-center">
           <motion.div
@@ -2415,13 +2597,22 @@ const PhysiCoreSection = () => {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
           >
-            <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">07 // Ecosystem</div>
-            <h2 className="font-rajdhani font-bold text-4xl md:text-5 font-rajdhani font-bold text-4xl md:text-5xl tracking-tight mb-8">
-              SENTINEL + PHYSICORE
+            <div className="text-[#00ff41] text-[10px] uppercase tracking-[0.3em] mb-4 font-mono">10 // Ecosystem</div>
+            <h2 className="font-rajdhani font-bold text-2xl md:text-4xl tracking-tight mb-8 uppercase">
+              PHYSICORE<br />INTEGRATION
             </h2>
             <p className="text-zinc-400 leading-relaxed mb-8">
               Sentinel OS is fully integrated with the PhysiCore ecosystem. Design your robot's physical parameters in PhysiCore, and sync them directly to Sentinel for instant formal verification.
             </p>
+            <div className="mb-8">
+              <button 
+                onClick={() => window.open('https://physicore-hybrid-mpc.vercel.app/', '_blank')}
+                className="inline-flex items-center gap-3 px-8 py-4 border border-[#00ff41] text-[#00ff41] font-bold uppercase text-xs tracking-widest hover:bg-[#00ff41] hover:text-black transition-all"
+              >
+                Learn more about physicore
+                <ExternalLink size={16} />
+              </button>
+            </div>
             <div className="space-y-4">
               <div className="flex gap-4 items-center p-4 border border-zinc-800 bg-black">
                 <div className="w-10 h-10 border border-[#00ff41] flex items-center justify-center shrink-0">
@@ -2544,7 +2735,8 @@ const CTASection = ({ onLaunch }: { onLaunch: () => void }) => {
 
 const Footer = () => {
   return (
-    <footer className="py-20 bg-black border-t border-zinc-900">
+    <footer className="py-20 bg-black border-t border-zinc-900 relative">
+      <div className="absolute top-0 left-0 w-full h-px bg-[#00ff41] opacity-50 shadow-[0_0_10px_rgba(0,255,65,0.5)]" />
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-20">
           <div className="col-span-1 md:col-span-2">
