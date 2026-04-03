@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Terminal, Send, Cpu, Zap, ShieldAlert, Bot, User, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Terminal, Send, Cpu, Zap, ShieldAlert, Bot, User, Loader2, AlertTriangle, CheckCircle2, FileUp, Info, X } from 'lucide-react';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { IndustryProfile, RobotTopology } from '../types';
+import { decodeProjectCode, generateId } from '../src/services/projectSync';
 
 interface Message {
   role: 'assistant' | 'user';
@@ -13,12 +14,16 @@ interface IntegrationTerminalProps {
   industry?: IndustryProfile;
   onTopologyDetected?: (topology: RobotTopology) => void;
   onIndustryDetected?: (industry: IndustryProfile) => void;
+  onProjectSync?: (syncData: { id: string; code: string; origin: 'PC' | 'SN' }) => void;
+  onProfileUpdate?: (profile: any) => void;
 }
 
 const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({ 
   industry = IndustryProfile.GENERAL_ROBOTICS,
   onTopologyDetected,
-  onIndustryDetected
+  onIndustryDetected,
+  onProjectSync,
+  onProfileUpdate
 }) => {
   const getInitialMessage = () => {
     const base = "SYSTEM: Sentinel Integration Kernel v5.0.2 Online.\n\nI am a Sentinel Integration Engineer. My job is to help you connect your robot to Sentinel — the governance layer between AI and physical actuation.\n\n";
@@ -35,7 +40,7 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
       return base + "For Fleet & Logistics, I specialize in Byzantine-resilient consensus and PTP-synchronized fleet coordination.\n\nBefore we begin, I need to ask:\n1. How many nodes are in your fleet?\n2. What is your network topology (Mesh, Star, etc.)?\n3. Which communication middleware are you using? (ROS2/DDS, Zenoh, etc.)\n4. What is your required clock synchronization precision?";
     }
 
-    return base + "Before we begin, I need to ask you four questions:\n\n1. What is your robot? (drone, arm, rover, custom hardware?)\n2. Which flight controller stack are you using? (PX4 v1.14+, ArduPilot, or Custom?)\n3. How does your AI currently send commands? (ROS2 topics, direct serial, custom protocol?)\n4. What hardware are you running on? (compute board, OS?)";
+    return base + "Before we begin, I need to ask you four questions:\n\n1. What is your robot? (drone, arm, rover, custom hardware?)\n2. Which flight controller stack are you using? (PX4 v1.14+, ArduPilot, or Custom?)\n3. How does your AI currently send commands? (ROS2 topics, direct serial, custom protocol?)\n4. What hardware are you running on? (compute board, OS?)\n\n(Optional) 13. Enter your email to link this project across PhysiCore/Sentinel and generate a persistent Project ID.";
   };
 
   const [messages, setMessages] = useState<Message[]>([
@@ -62,7 +67,60 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
   const [parserStatus, setParserStatus] = useState<'NEURAL' | 'SYMBOLIC' | 'DIVERGENCE' | 'BLOCKED'>('NEURAL');
   const [coherenceWarning, setCoherenceWarning] = useState<string | null>(null);
   const [intentHistory, setIntentHistory] = useState<{intent: string, timestamp: number}[]>([]);
+  const [showImportPanel, setShowImportPanel] = useState(false);
+  const [importCode, setImportCode] = useState('');
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const handleImportProject = () => {
+    if (!importCode.trim()) return;
+    
+    const result = decodeProjectCode(importCode);
+    if (result.error) {
+      setImportError(result.error);
+      return;
+    }
+
+    setImportError(null);
+    setImportSuccess(true);
+    
+    if (onProjectSync) {
+      onProjectSync({
+        id: result.data.projectId,
+        code: importCode,
+        origin: result.origin as 'PC' | 'SN'
+      });
+    }
+
+    if (onProfileUpdate) {
+      onProfileUpdate({
+        unitDesignation: result.data.unit,
+        massKg: result.data.params.mass,
+        confidenceThreshold: result.data.params.confidence,
+        residualThreshold: result.data.params.residual,
+        lyapunovBound: result.data.safety.lyapunov,
+        protocols: result.data.protocols,
+        email: result.data.email
+      });
+    }
+
+    // Auto-fill topology and industry
+    if (result.data.domain && onIndustryDetected) onIndustryDetected(result.data.domain);
+    if (result.data.unit && onTopologyDetected) onTopologyDetected(result.data.unit);
+
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      content: `▣ PROJECT IMPORT SUCCESSFUL\n\nOrigin: ${result.origin === 'physicore' ? 'PhysiCore' : 'Sentinel'}\nProject ID: ${result.data.projectId}\n\nI have auto-filled your system profile with the parameters from this code. We can skip the basic questions and move directly to integration specific to your ${result.data.unit} setup.`,
+      timestamp: Date.now()
+    }]);
+
+    setTimeout(() => {
+      setShowImportPanel(false);
+      setImportSuccess(false);
+      setImportCode('');
+    }, 2000);
+  };
 
   const sentinelSymbolicParser = (userInput: string) => {
     const input = userInput.toLowerCase();
@@ -436,8 +494,83 @@ const IntegrationTerminal: React.FC<IntegrationTerminalProps> = ({
       {/* Messages Area */}
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-[radial-gradient(circle_at_center,rgba(0,255,65,0.03)_0%,transparent_100%)]"
+        className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-[radial-gradient(circle_at_center,rgba(0,255,65,0.03)_0%,transparent_100%)] relative"
       >
+        {/* Import Panel Overlay */}
+        {showImportPanel && (
+          <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-sm p-6 flex flex-col items-center justify-center animate-in fade-in duration-300">
+            <button 
+              onClick={() => setShowImportPanel(false)}
+              className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="w-full max-w-md space-y-6">
+              <div className="text-center space-y-2">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 mb-2">
+                  <FileUp size={24} />
+                </div>
+                <h3 className="text-white font-black uppercase tracking-tight">Import Project Code</h3>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-widest">Sync parameters from PhysiCore or another Sentinel project</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] text-zinc-600 uppercase font-bold tracking-widest ml-1">Paste Code (PC- or SN-)</label>
+                  <textarea 
+                    value={importCode}
+                    onChange={(e) => setImportCode(e.target.value)}
+                    placeholder="PC-..."
+                    className="w-full h-32 bg-zinc-950 border border-zinc-800 rounded-sm p-3 text-xs text-cyan-400 font-mono focus:border-cyan-500/50 outline-none transition-all resize-none"
+                  />
+                </div>
+
+                {importError && (
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-[10px] uppercase font-bold flex items-center gap-2">
+                    <AlertTriangle size={14} />
+                    {importError}
+                  </div>
+                )}
+
+                {importSuccess && (
+                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] uppercase font-bold flex items-center gap-2">
+                    <CheckCircle2 size={14} />
+                    Project Synchronized Successfully
+                  </div>
+                )}
+
+                <button 
+                  onClick={handleImportProject}
+                  disabled={!importCode.trim() || importSuccess}
+                  className="w-full py-3 bg-cyan-500 text-black font-black uppercase text-xs tracking-widest hover:bg-white transition-all disabled:opacity-20"
+                >
+                  {importSuccess ? 'Synchronized' : 'Sync Project'}
+                </button>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 bg-zinc-900/50 border border-zinc-800">
+                <Info size={14} className="text-zinc-500 shrink-0 mt-0.5" />
+                <p className="text-[9px] text-zinc-500 leading-relaxed uppercase">
+                  Importing a project code will overwrite your current system profile parameters. 
+                  The Integration Engineer will skip questions already answered in the code.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {interactionCount === 0 && !showImportPanel && (
+          <div className="flex justify-center mb-4">
+            <button 
+              onClick={() => setShowImportPanel(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-cyan-400 hover:border-cyan-400/50 transition-all text-[10px] font-bold uppercase tracking-widest group"
+            >
+              <FileUp size={14} className="group-hover:scale-110 transition-transform" />
+              Import PhysiCore Project Code
+            </button>
+          </div>
+        )}
         {coherenceWarning && (
           <div className="p-2 bg-amber-950/30 border border-amber-900/50 rounded flex items-center gap-2 text-amber-500 text-[11px] animate-pulse">
             <AlertTriangle size={12} />

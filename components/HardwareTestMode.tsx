@@ -20,7 +20,10 @@ import {
   Copy,
   HelpCircle,
   Info,
-  Rocket
+  Rocket,
+  FileUp,
+  Info as InfoIcon,
+  X as XIcon
 } from 'lucide-react';
 import { 
   HardwarePlatform, 
@@ -28,8 +31,10 @@ import {
   SafetyChecklist,
   RocketAvionicsStack,
   RocketRecoverySystem,
-  RocketTelemetryType
+  RocketTelemetryType,
+  IndustryProfile
 } from '../types';
+import { decodeProjectCode } from '../src/services/projectSync';
 
 interface HardwareTestModeProps {
   onClose: () => void;
@@ -123,7 +128,57 @@ const HardwareTestMode: React.FC<HardwareTestModeProps> = ({ onClose, onDeploy, 
   const [deploymentStatus, setDeploymentStatus] = useState<'idle' | 'deploying' | 'active'>('idle');
   const [logs, setLogs] = useState<string[]>([]);
   const [shakeUnchecked, setShakeUnchecked] = useState(false);
+  const [showImportPanel, setShowImportPanel] = useState(false);
+  const [importCode, setImportCode] = useState('');
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleImportProject = () => {
+    if (!importCode.trim()) return;
+    
+    const result = decodeProjectCode(importCode);
+    if (result.error) {
+      setImportError(result.error);
+      return;
+    }
+
+    setImportError(null);
+    setImportSuccess(true);
+    
+    // Auto-fill platform and params
+    if (result.data.unit) {
+      if (result.data.unit.includes('Quadcopter') || result.data.unit.includes('drone')) {
+        setSelectedPlatform(HardwarePlatform.AUTONOMOUS_DRONE);
+      } else if (result.data.unit.includes('Rocket')) {
+        setSelectedPlatform(HardwarePlatform.SOUNDING_ROCKET);
+      } else if (result.data.unit.includes('Arm')) {
+        setSelectedPlatform(HardwarePlatform.ROBOTIC_ARM);
+      }
+    }
+
+    if (result.data.params) {
+      setSafetyParams(prev => ({
+        ...prev,
+        confidenceThreshold: result.data.params.confidence * 100
+      }));
+    }
+
+    if (result.data.sentinel) {
+      setSafetyParams(prev => ({
+        ...prev,
+        lyapunovBound: result.data.sentinel.bounds,
+        // Map other sentinel specific fields if needed
+      }));
+    }
+
+    setTimeout(() => {
+      setShowImportPanel(false);
+      setImportSuccess(false);
+      setImportCode('');
+      setHtmScreen(2); // Move to safety protocols
+    }, 1500);
+  };
 
   const ARM_CHECKLIST = [
     { id: 'estop', title: 'Physical E-stop Verified', detail: 'Emergency stop button is functional and within reach.', verify: false },
@@ -662,8 +717,80 @@ if __name__ == '__main__':
                   <div className="h-px flex-1 bg-zinc-800"></div>
                 </div>
                 <h2 className="text-3xl font-display font-black uppercase tracking-tightest text-white italic text-center leading-none">Select_Target_Platform</h2>
+                <div className="flex justify-center">
+                  <button 
+                    onClick={() => setShowImportPanel(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-cyan-400 hover:border-cyan-400/50 transition-all text-[10px] font-bold uppercase tracking-widest group"
+                  >
+                    <FileUp size={14} className="group-hover:scale-110 transition-transform" />
+                    Import Project Code
+                  </button>
+                </div>
                 <p className="text-sm text-zinc-500 text-center max-w-2xl mx-auto leading-relaxed font-sans">Choose the hardware topology for this test mission. Sentinel will adapt its safety kernel to the specific dynamics of the platform.</p>
               </div>
+
+              {/* Import Panel Overlay */}
+              {showImportPanel && (
+                <div className="fixed inset-0 z-[110] bg-black/95 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
+                  <div className="w-full max-w-md space-y-8">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                          <FileUp size={20} />
+                        </div>
+                        <div>
+                          <h3 className="text-white font-black uppercase text-sm tracking-tight">Import_Project_Sync</h3>
+                          <p className="text-[9px] text-zinc-500 uppercase tracking-widest">Load parameters from PhysiCore/Sentinel</p>
+                        </div>
+                      </div>
+                      <button onClick={() => setShowImportPanel(false)} className="text-zinc-500 hover:text-white">
+                        <XIcon size={20} />
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[9px] text-zinc-600 uppercase font-bold tracking-widest ml-1">Project Code</label>
+                        <textarea 
+                          value={importCode}
+                          onChange={(e) => setImportCode(e.target.value)}
+                          placeholder="PC-..."
+                          className="w-full h-40 bg-zinc-950 border border-zinc-800 rounded-sm p-4 text-xs text-cyan-400 font-mono focus:border-cyan-500/50 outline-none transition-all resize-none"
+                        />
+                      </div>
+
+                      {importError && (
+                        <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-[10px] uppercase font-bold flex items-center gap-2">
+                          <AlertTriangle size={14} />
+                          {importError}
+                        </div>
+                      )}
+
+                      {importSuccess && (
+                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] uppercase font-bold flex items-center gap-2">
+                          <CheckCircle2 size={14} />
+                          Project Synchronized
+                        </div>
+                      )}
+
+                      <button 
+                        onClick={handleImportProject}
+                        disabled={!importCode.trim() || importSuccess}
+                        className="w-full py-4 bg-cyan-500 text-black font-black uppercase text-xs tracking-widest hover:bg-white transition-all disabled:opacity-20"
+                      >
+                        {importSuccess ? 'Synchronized' : 'Sync Project'}
+                      </button>
+                    </div>
+
+                    <div className="p-4 bg-zinc-900/50 border border-zinc-800 flex items-start gap-3">
+                      <InfoIcon size={14} className="text-zinc-500 shrink-0 mt-0.5" />
+                      <p className="text-[9px] text-zinc-500 leading-relaxed uppercase">
+                        Importing a project code will auto-select the platform and pre-fill safety thresholds.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-16">
                 <button 

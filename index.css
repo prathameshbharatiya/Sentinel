@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -6,17 +6,60 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-display: "Rajdhani", sans-serif;
   
-  --color-void: #020202;
+  --color-void: #080808;
+  --color-bg: #0C0C0C;
+  --color-bg-raised: #111111;
+  --color-bg-inset: #0A0A0A;
+  --color-border-dim: #1E1E1E;
+  --color-border: #2A2A2A;
+  --color-border-active: #3D3D3D;
+  --color-text-primary: #EFEFEF;
+  --color-text-secondary: #7A7A7A;
+  --color-text-dim: #444444;
   --color-amber: #FFB800;
-  --color-red-dim: rgba(220, 38, 38, 0.1);
-  --color-bg-raised: #0a0a0a;
-  --color-border: #262626;
+  --color-amber-dim: #1A1000;
+  --color-green: #00FF88;
+  --color-green-dim: #003320;
+  --color-red: #FF2222;
+  --color-red-dim: #1A0000;
+  --color-blue: #0099FF;
+  --color-blue-dim: #001020;
+  --color-cyan: #00DDCC;
+  --color-white: #FFFFFF;
 }
 
 :root {
-  --background: #020202;
-  --foreground: #e5e7eb;
-  --accent: #FFB800;
+  --void: #080808;
+  --bg: #0C0C0C;
+  --bg-raised: #111111;
+  --bg-inset: #0A0A0A;
+  --border-dim: #1E1E1E;
+  --border: #2A2A2A;
+  --border-active: #3D3D3D;
+  --text-primary: #EFEFEF;
+  --text-secondary: #7A7A7A;
+  --text-dim: #444444;
+  --amber: #FFB800;
+  --amber-dim: #1A1000;
+  --green: #00FF88;
+  --green-dim: #003320;
+  --red: #FF2222;
+  --red-dim: #1A0000;
+  --blue: #0099FF;
+  --blue-dim: #001020;
+  --cyan: #00DDCC;
+  --white: #FFFFFF;
+}
+
+html {
+  scroll-behavior: smooth;
+  background-color: var(--void);
+  color: var(--text-primary);
+}
+
+* {
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
