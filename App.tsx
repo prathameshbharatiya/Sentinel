@@ -1822,7 +1822,7 @@ const LandingPage = ({ onLaunch }: { onLaunch: () => void }) => {
 
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-[#00ff41] selection:text-black">
-      <Navbar onLaunch={onLaunch} isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
+      <Navbar onLaunch={onLaunch} isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} onOpenPaper={() => setIsPaperOpen(true)} />
       
       <main>
         <HeroSection onLaunch={onLaunch} />
@@ -1835,17 +1835,19 @@ const LandingPage = ({ onLaunch }: { onLaunch: () => void }) => {
         <MathematicsSection />
         <PhysiCoreSection />
         <HardwareValidation />
+        <WhitepaperSection onOpenPaper={() => setIsPaperOpen(true)} />
         <BuiltBySection />
+        <CTASection onLaunch={onLaunch} />
       </main>
 
-      <Footer />
+      <Footer onOpenPaper={() => setIsPaperOpen(true)} />
 
       <PaperModal isOpen={isPaperOpen} onClose={() => setIsPaperOpen(false)} />
     </div>
   );
 };
 
-const Navbar = ({ onLaunch, isMenuOpen, setIsMenuOpen }: { onLaunch: () => void, isMenuOpen: boolean, setIsMenuOpen: (v: boolean) => void }) => {
+const Navbar = ({ onLaunch, isMenuOpen, setIsMenuOpen, onOpenPaper }: { onLaunch: () => void, isMenuOpen: boolean, setIsMenuOpen: (v: boolean) => void, onOpenPaper: () => void }) => {
   return (
     <nav className="fixed top-0 left-0 w-full z-50 bg-black/80 backdrop-blur-md border-b border-zinc-800">
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -1873,13 +1875,23 @@ const Navbar = ({ onLaunch, isMenuOpen, setIsMenuOpen }: { onLaunch: () => void,
 
         <div className="hidden md:flex items-center gap-10">
           {['Architecture', 'Mathematics', 'Guarantees', 'Whitepaper'].map((item) => (
-            <a 
-              key={item} 
-              href={`#${item.toLowerCase()}`}
-              className="text-xs uppercase tracking-[0.2em] text-zinc-400 hover:text-[#00ff41] transition-colors"
-            >
-              {item}
-            </a>
+            item === 'Whitepaper' ? (
+              <button 
+                key={item}
+                onClick={onOpenPaper}
+                className="text-xs uppercase tracking-[0.2em] text-zinc-400 hover:text-[#00ff41] transition-colors"
+              >
+                {item}
+              </button>
+            ) : (
+              <a 
+                key={item} 
+                href={`#${item.toLowerCase()}`}
+                className="text-xs uppercase tracking-[0.2em] text-zinc-400 hover:text-[#00ff41] transition-colors"
+              >
+                {item}
+              </a>
+            )
           ))}
         </div>
 
@@ -1911,14 +1923,27 @@ const Navbar = ({ onLaunch, isMenuOpen, setIsMenuOpen }: { onLaunch: () => void,
             className="absolute top-20 left-0 w-full bg-black border-b border-zinc-800 p-6 flex flex-col gap-6 md:hidden"
           >
             {['Architecture', 'Mathematics', 'Guarantees', 'Whitepaper'].map((item) => (
-              <a 
-                key={item} 
-                href={`#${item.toLowerCase()}`}
-                onClick={() => setIsMenuOpen(false)}
-                className="text-sm uppercase tracking-[0.2em] text-zinc-400"
-              >
-                {item}
-              </a>
+              item === 'Whitepaper' ? (
+                <button 
+                  key={item}
+                  onClick={() => {
+                    onOpenPaper();
+                    setIsMenuOpen(false);
+                  }}
+                  className="text-sm uppercase tracking-[0.2em] text-zinc-400 text-left"
+                >
+                  {item}
+                </button>
+              ) : (
+                <a 
+                  key={item} 
+                  href={`#${item.toLowerCase()}`}
+                  onClick={() => setIsMenuOpen(false)}
+                  className="text-sm uppercase tracking-[0.2em] text-zinc-400"
+                >
+                  {item}
+                </a>
+              )
             ))}
             <button 
               onClick={onLaunch}
@@ -2733,7 +2758,7 @@ const CTASection = ({ onLaunch }: { onLaunch: () => void }) => {
   );
 };
 
-const Footer = () => {
+const Footer = ({ onOpenPaper }: { onOpenPaper: () => void }) => {
   return (
     <footer className="py-20 bg-black border-t border-zinc-900 relative">
       <div className="absolute top-0 left-0 w-full h-px bg-[#00ff41] opacity-50 shadow-[0_0_10px_rgba(0,255,65,0.5)]" />
@@ -2754,9 +2779,9 @@ const Footer = () => {
           <div>
             <h4 className="text-[10px] uppercase tracking-widest text-zinc-400 mb-6">Resources</h4>
             <ul className="space-y-4 text-xs text-zinc-600">
-              <li><a href="#" className="hover:text-[#00ff41] transition-colors">Documentation</a></li>
+              <li><button onClick={onOpenPaper} className="hover:text-[#00ff41] transition-colors">Documentation</button></li>
               <li><a href="#" className="hover:text-[#00ff41] transition-colors">Digital Twin SDK</a></li>
-              <li><a href="#" className="hover:text-[#00ff41] transition-colors">Formal Proofs</a></li>
+              <li><button onClick={onOpenPaper} className="hover:text-[#00ff41] transition-colors">Formal Proofs</button></li>
               <li><a href="#" className="hover:text-[#00ff41] transition-colors">API Reference</a></li>
             </ul>
           </div>
@@ -2823,51 +2848,159 @@ const PaperModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
         <div className="flex-1 overflow-y-auto p-10 md:p-20 font-serif leading-relaxed">
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-16">
-              <h1 className="text-4xl font-bold mb-4">Sentinel OS: Formal Verification of Non-Linear Robotic Systems via Lyapunov Stability Kernels</h1>
-              <div className="text-zinc-500 italic mb-8">Version 5.0 Stable — March 2026</div>
-              <div className="text-sm uppercase tracking-widest font-sans font-bold">Abstract</div>
+              <h1 className="text-4xl font-bold mb-4">Sentinel v5.0: A Comprehensive Neural-Symbolic Governance Architecture for Safety-Critical Autonomous Systems</h1>
+              <div className="text-xl font-bold mb-2">Prathamesh Shirbhate</div>
+              <div className="text-zinc-500 italic mb-8">Safety-Critical Autonomous Systems • Neural-Symbolic AI Integration • Aerospace Control Architecture</div>
+              <div className="text-sm uppercase tracking-widest font-sans font-bold mb-4">Abstract</div>
+              <p className="text-sm text-justify mb-8">
+                Modern autonomous systems integrate large language models, reinforcement learning policies, and trajectory optimizers that operate without formal guarantees of physical plausibility, dynamic stability, or actuator feasibility. In safety-critical domains—aviation, spaceflight, autonomous vehicles, surgical robotics—blind execution of AI-generated commands introduces catastrophic failure modes including loss of control, Byzantine faults, semantic hallucination, fleet-level instability, and forensically unrecoverable incidents. We introduce Sentinel v5.0, a comprehensive ten-layer neural-symbolic governance architecture that enforces physics-constrained, formally verified, forensically auditable execution between high-level AI planners and low-level hardware actuation.
+              </p>
+              <div className="text-xs text-zinc-400 uppercase tracking-widest">Keywords: neural-symbolic AI, safety-critical systems, Lyapunov stability, Byzantine consensus, formal verification, aerospace control</div>
             </div>
 
-            <p className="mb-8">
-              This paper presents Sentinel OS, a deterministic safety kernel designed to bridge the semantic gap between probabilistic AI intent and physical safety constraints in autonomous robotics. We derive a real-time Lyapunov stability verification engine that operates at 10kHz, providing formal guarantees for system convergence and safety-set invariance.
-            </p>
+            <div className="space-y-8 text-justify">
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">1. Introduction and Architectural Philosophy</h2>
+                <p>
+                  The integration of artificial intelligence into safety-critical autonomous systems—commercial aviation, orbital launch vehicles, autonomous ground vehicles, surgical robotics, industrial automation—has reached an inflection point. Large language models now generate flight plans, reinforcement learning policies control high-dimensional robotic manipulators, and trajectory optimizers compute minimum-time paths through complex environments. Yet these AI systems operate without formal guarantees of the properties that safety-critical operation demands: dynamic stability, actuator feasibility, physical plausibility, Byzantine fault tolerance, and forensic reconstructibility.
+                </p>
+                <p className="mt-4">
+                  Sentinel v5.0 introduces a fundamentally different architectural paradigm: neural-symbolic governance. Rather than treating the AI planner and the control system as separate modules that communicate through an interface, Sentinel integrates them into a unified ten-layer architecture where each layer enforces a distinct class of safety constraint through a combination of symbolic reasoning, adaptive estimation, formal verification, and distributed consensus.
+                </p>
+              </section>
 
-            <h2 className="text-2xl font-bold mt-12 mb-6 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">1. Introduction</h2>
-            <p className="mb-6">
-              The integration of Large Language Models (LLMs) and deep reinforcement learning into robotic control stacks has introduced significant non-determinism. While these systems excel at high-level reasoning, they lack the formal guarantees required for safety-critical physical interaction. Sentinel OS addresses this by implementing a "Deterministic Firewall" that intercepts and verifies every control signal against the system's physical topology.
-            </p>
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">2. Core Design Principles and Formal Guarantees</h2>
+                <p>
+                  Sentinel's architecture is structured around five core principles: Zero-Trust AI Integration, Compositional Formal Verification, Adaptive Physics-Informed Learning, Multi-Agent Byzantine Resilience, and Forensic Reconstructibility. Sentinel assumes that the AI planner may be incorrect, semantically inconsistent, adversarially compromised, or operating outside its training distribution. This assumption is a formal design constraint.
+                </p>
+              </section>
 
-            <h2 className="text-2xl font-bold mt-12 mb-6 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">2. Mathematical Framework</h2>
-            <p className="mb-6">
-              We define the robotic system as a non-linear state-space model:
-            </p>
-            <div className="bg-zinc-50 p-6 border border-zinc-100 font-mono text-center mb-6">
-              ẋ = f(x, u) + d(t)
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">3. Layer 0 and 0.5: Neural Command Bridge and Mission Phase Management</h2>
+                <p>
+                  L0 addresses ambiguity through a dual-parser architecture that runs two independent interpretation paths in parallel: a fine-tuned LLM path and a deterministic symbolic parser. Sentinel computes the semantic distance between their interpretations. L0.5 synchronizes the safety governor with planned mission events, such as staging for a multi-stage rocket, by dynamically adjusting safety tubes.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">4. Layer 1: Semantic Intent Coherence and Adversarial Filtering</h2>
+                <p>
+                  L1 monitors the temporal structure of the command stream to detect patterns that indicate planner malfunction or adversarial manipulation. It implements contradiction detection (e.g., FULL_THROTTLE followed by EMERGENCY_STOP within 10ms) and frequency anomaly detection to prevent denial-of-service attacks on the governance kernel.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">5. Layer 2: Physics-Informed Adaptive Digital Twin</h2>
+                <p>
+                  L2 maintains a continuously updated mathematical model of the platform's dynamics through recursive least squares (RLS) estimation constrained by known physics. For aerospace vehicles, it integrates atmospheric density modeling, transonic drag rise compensation, and propellant mass flow observation.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">6. Layer 3: Byzantine-Resilient Distributed Consensus</h2>
+                <p>
+                  In multi-agent deployments, L3 implements a Byzantine fault-tolerant consensus protocol that detects and excludes compromised or malfunctioning agents. Peers are classified as TRUSTED, SUSPICIOUS, or COMPROMISED based on telemetry divergence and parameter drift.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">7. Layer 4: Dual-Tier Lyapunov Safety Kernel</h2>
+                <p>
+                  L4 is the stability enforcement core, operating at dual timescales: a 10kHz inner loop for microsecond-scale responsiveness and a 1kHz outer loop for heavy computational tasks like solving the Lyapunov equation and Byzantine consensus votes. It uses uncertainty-aware Lyapunov tubes to ensure worst-case stability.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">8. Layers 5 and 6: Hardware Fault Observation and Governed Override</h2>
+                <p>
+                  L5 monitors residuals to detect hardware faults using a signature library (e.g., bearing wear vs. payload shift). L6 implements governed human overrides that enforce physics-aware deceleration profiles rather than instantaneous power cutoff, preventing free-fall in aerial vehicles.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">9. Layer 7: PTP-Synchronized Forensic Audit Ledger</h2>
+                <p>
+                  L7 records every decision into a cryptographically chained audit ledger with nanosecond-precision PTP timestamps. The hash chain structure ensures that any modification is cryptographically detectable, enabling sub-microsecond precision in post-incident investigation.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">10. Layer 8: Machine-Checkable Formal Verification</h2>
+                <p>
+                  L8 generates machine-checkable proofs using dReal for interval Lyapunov stability and Coq for convex parameter projection. These proofs are executable artifacts that can be mechanically verified, transforming trust into objective verification.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">11. Hardware Abstraction and Regulatory Compliance</h2>
+                <p>
+                  Sentinel's HAL supports ARM, RISC-V, FPGA, and space-grade processors. It provides compliance frameworks for DO-178C DAL-A (aviation), NASA-STD-8739.8 (spaceflight), ISO 26262 ASIL-D (automotive), and IEC 61508 SIL-4 (industrial).
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">12. Production-Ready CLI Tooling</h2>
+                <p>
+                  The sentinel-cli provides preflight validation, AI-guided integration terminals, and SQL-based ledger audit query tools, reducing deployment time from days to hours while eliminating configuration errors.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">13. Computational Performance</h2>
+                <p>
+                  The dual-tier architecture achieves WCET &lt; 15µs for the 10kHz loop and 85-120µs for the 1kHz loop on ARM Cortex-A72. Memory footprint is 78KB static with zero heap allocation, compatible with resource-constrained embedded platforms.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">14. Validation Campaign</h2>
+                <p>
+                  Sentinel has been validated through fault injection testing covering parameter drift, sensor corruption, memory integrity, adversarial commands, actuator failure, and Byzantine attacks, maintaining stability in all scenarios.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">15. Limitations and Future Work</h2>
+                <p>
+                  Current limitations include linearized Lyapunov analysis and independent Byzantine fault assumptions. Future work targets v6.0 with Sum-of-Squares programming and unsteady aerodynamic modeling for hypersonic flight.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">16. Related Work</h2>
+                <p>
+                  Sentinel builds on adaptive control, Byzantine consensus, and formal verification, but integrates them into a unified architecture unprecedented in scope. It extends NASA's cFS philosophy to autonomous AI control.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">17. Ethical Implications</h2>
+                <p>
+                  Sentinel addresses liability through forensic ledgers and collective responsibility through Byzantine resilience. It balances operator authority with physics-aware safety, transforming trust into compositional proof.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-bold mb-4 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">18. Conclusion</h2>
+                <p>
+                  Sentinel v5.0 transforms autonomous system deployment from trust-based execution to proof-constrained, consensus-verified, forensically reconstructible control, enabling certification-ready operation in the most demanding environments.
+                </p>
+              </section>
+
+              <section className="mt-12 pt-8 border-t border-zinc-200">
+                <h2 className="text-xl font-bold mb-4 font-sans uppercase tracking-tight">References</h2>
+                <ul className="text-xs space-y-2 list-decimal pl-4">
+                  <li>Slotine, J.-J. E., and Li, W. (1991). Applied Nonlinear Control.</li>
+                  <li>Khalil, H. K. (2002). Nonlinear Systems, 3rd Edition.</li>
+                  <li>Ljung, L. (1999). System Identification: Theory for the User.</li>
+                  <li>Lamport, L., et al. (1982). The Byzantine Generals Problem.</li>
+                  <li>Ames, A. D., et al. (2017). Control barrier function based quadratic programs.</li>
+                  <li>RTCA DO-178C. (2011). Software Considerations in Airborne Systems.</li>
+                  <li>NASA-STD-8739.8. (2013). Software Assurance and Software Safety Standard.</li>
+                </ul>
+              </section>
             </div>
-            <p className="mb-6">
-              Where x is the state vector, u is the control input, and d(t) represents external disturbances. Sentinel OS maintains a real-time Digital Twin using Recursive Least Squares (RLS) with adaptive forgetting to estimate f(x, u) continuously.
-            </p>
-
-            <h3 className="text-xl font-bold mt-8 mb-4 font-sans uppercase tracking-tight">2.1 Lyapunov Stability Criteria</h3>
-            <p className="mb-6">
-              To guarantee stability, we define a Lyapunov candidate function V(x). Sentinel OS solves the following inequality for every control cycle:
-            </p>
-            <div className="bg-zinc-50 p-6 border border-zinc-100 font-mono text-center mb-6">
-              V̇(x) = (∇V)<sup>T</sup> f(x, u) ≤ -λV(x)
-            </div>
-            <p className="mb-6">
-              If the requested control input u violates this condition, the Sentinel Kernel applies a minimal corrective torque τ<sub>safe</sub> to bring the system back into the stable manifold.
-            </p>
-
-            <h2 className="text-2xl font-bold mt-12 mb-6 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">3. Architecture</h2>
-            <p className="mb-6">
-              Sentinel OS is structured into 10 discrete layers, each providing a specific safety guarantee. The L4 Lyapunov Kernel is the heart of the system, while L6 provides an immutable forensic ledger of all safety interventions, signed using SHA-256 and stored in a Byzantine-resilient quorum.
-            </p>
-
-            <h2 className="text-2xl font-bold mt-12 mb-6 font-sans uppercase tracking-tight border-b border-zinc-200 pb-2">4. Conclusion</h2>
-            <p className="mb-6">
-              By enforcing deterministic safety at the kernel level, Sentinel OS enables the deployment of complex AI models in high-stakes physical environments. Our benchmarks show a 99.99% reduction in catastrophic divergence events compared to standard ROS2 safety nodes.
-            </p>
 
             <div className="mt-20 pt-10 border-t border-zinc-200 text-center text-zinc-400 text-xs uppercase tracking-widest">
               End of Document // Sentinel Systems Research
